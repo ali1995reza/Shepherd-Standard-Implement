@@ -217,7 +217,7 @@ class NodeInfoImpl implements NodeInfo {
     {
         try {
 
-            if(state==NodeState.CONNECTED ||
+            if(state==NodeState.CLUSTER_CONNECTED ||
                     (state==NodeState.LEAVING && (serviceId==0 || serviceId==1))) {
                 try {
                     acknowledgeNotifiers[priority].waitForNotify(ack, msgId);
@@ -251,7 +251,7 @@ class NodeInfoImpl implements NodeInfo {
     {
         try {
 
-            if(state==NodeState.CONNECTED ||
+            if(state==NodeState.CLUSTER_CONNECTED ||
                     (state==NodeState.LEAVING&&(serviceId==1 || serviceId==0))) {
 
 

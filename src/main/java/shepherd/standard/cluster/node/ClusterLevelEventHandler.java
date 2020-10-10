@@ -314,7 +314,9 @@ class ClusterLevelEventHandler {
 
         info.setState(NodeState.DISCONNECTED);
         node.releaseAllEnqueuedAcknowledgesListener(info);
-        node.nodesList().removeNode(info);
+
+        //it just local detected do not remove node
+        //node.nodesList().removeNode(info);
 
 
         logger.information("disconnect announce sent for node [{}]" , info.id());
@@ -474,7 +476,7 @@ class ClusterLevelEventHandler {
             }
 
 
-            info.setState(NodeState.CONNECTED);
+            info.setState(NodeState.CLUSTER_CONNECTED);
         }else if(data instanceof TimeSync)
         {
             TimeSync timeSync = (TimeSync) data;
@@ -535,6 +537,8 @@ class ClusterLevelEventHandler {
                             MAXIMUM_PRIORITY
                     );
 
+                    info.setState(NodeState.CONNECTED);
+
                 }
             } else {
 
@@ -543,16 +547,33 @@ class ClusterLevelEventHandler {
                     if(isCurrentNodeLeader())
                     {
                         logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
+                        NodeInfoImpl nodeInfo  = node.nodesList().fastFindById(
+                                announce.relatedNode()
+                                .id()
+                        );
+                        nodeInfo.setState(NodeState.CLUSTER_DISCONNECTED);
+                        node.nodesList().removeNode(nodeInfo);
                     }else {
                         node.dispose();
                     }
                 }
                 else if(numberOfSuccesses >= announce.totalPossibleAnnouncers()/2+1) {
                     logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
+
+
+                    NodeInfoImpl nodeInfo  = node.nodesList().fastFindById(
+                            announce.relatedNode()
+                                    .id()
+                    );
+                    nodeInfo.setState(NodeState.CLUSTER_DISCONNECTED);
+                    node.nodesList().removeNode(nodeInfo);
+
+
                     if(announce.relatedNode().isLeader())
                     {
                         node.nodesList().setNextLeader();
                     }
+
 
                 }
                 else {

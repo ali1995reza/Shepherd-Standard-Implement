@@ -239,7 +239,10 @@ public class StandardNode implements Node<SocketAddress> {
                     node.nodesList.addNode(
                             nodeInfo
                     );
+
+                    nodeInfo.setState(NodeState.CONNECTING);
                     nodeInfo.setState(NodeState.SYNCHRONIZING);
+                    nodeInfo.setState(NodeState.CONNECTED);
 
                     ifTrue("more than possible node request to handle connect response" ,
                             --numberOfNodes<0);
@@ -298,12 +301,12 @@ public class StandardNode implements Node<SocketAddress> {
                         );
 
                         NodeInfoImpl info = channel.attachment();
-                        info.setState(NodeState.CONNECTED);
+                        info.setState(NodeState.CLUSTER_CONNECTED);
 
                     }
 
 
-                    node.currentNodeInfo.setState(NodeState.CONNECTED);
+                    node.currentNodeInfo.setState(NodeState.CLUSTER_CONNECTED);
 
 
                     ++state;
@@ -769,7 +772,7 @@ public class StandardNode implements Node<SocketAddress> {
             byte serviceHeader = Utils.getByte(data);
 
 
-            if(info.state().is(NodeState.CONNECTED) ||
+            if(info.state().is(NodeState.CLUSTER_CONNECTED) ||
                     (info.state().is(NodeState.LEAVING) &&
                             (serviceId==1||serviceId==0))) {
 
