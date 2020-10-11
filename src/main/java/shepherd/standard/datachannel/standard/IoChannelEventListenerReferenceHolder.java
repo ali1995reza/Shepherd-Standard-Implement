@@ -23,7 +23,6 @@ public class IoChannelEventListenerReferenceHolder implements IoChannelEventList
     public void setReference(IoChannelEventListener reference) {
         Assertion.ifNull("event listener is null" , reference);
         this.reference = reference;
-        System.out.println("SET REF : "+reference);
     }
 
     @Override
