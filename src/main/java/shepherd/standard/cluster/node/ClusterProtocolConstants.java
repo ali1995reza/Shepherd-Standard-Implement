@@ -61,12 +61,12 @@ final class ClusterProtocolConstants {
 
     private static final Base64.Encoder encoder = Base64.getEncoder();
 
-    static JoinResponse createSuccessJoinResponse(NodeInfoImpl requestInfo , Collection<NodeInfo> infos , String token) throws IOException {
+    static JoinResponse createSuccessJoinResponse(StandardNodeInfo requestInfo , Collection<NodeInfo> infos , String token) throws IOException {
         JoinResponse response = new JoinResponse();
         response.setType(JoinResponse.ResponseType.SUCCESS);
         for(NodeInfo i : infos)
         {
-            response.addNode(((NodeInfoImpl)i).toSerializableInfo());
+            response.addNode(((StandardNodeInfo)i).toSerializableInfo());
         }
 
         response.setYourInfo(requestInfo.toSerializableInfo());

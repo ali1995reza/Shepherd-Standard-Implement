@@ -14,6 +14,7 @@ import shepherd.api.logger.Logger;
 import shepherd.api.logger.LoggerFactory;
 import shepherd.api.message.MessageServiceManager;
 import shepherd.api.message.exceptions.SerializeException;
+import shepherd.standard.assertion.Assertion;
 import shepherd.standard.cluster.node.clusterlevelmessage.*;
 import shepherd.standard.config.ConfigChangeResult;
 import shepherd.standard.config.Configuration;
@@ -227,14 +228,14 @@ public class StandardNode implements Node<SocketAddress> {
 
                     ifNull("attachment is null" , ioChannel.attachment());
                     ifTrue("connect response received multiple time" ,
-                            ioChannel.attachment() instanceof NodeInfoImpl);
+                            ioChannel.attachment() instanceof StandardNodeInfo);
                     ifFalse("connect response not success from node with ID["+((SerializableNodeInfo)ioChannel.attachment()).id()+"]" ,
                             response.isSuccess());
                     ifFalse("connect response not match with connect request" ,
                             response.info().equals(ioChannel.attachment()));
 
-                    NodeInfoImpl nodeInfo =
-                            NodeInfoImpl.parseSerializedInfo(response.info() , node , ioChannel);
+                    StandardNodeInfo nodeInfo =
+                            StandardNodeInfo.parseSerializedInfo(response.info() , node , ioChannel);
                     ioChannel.attach(nodeInfo);
                     node.nodesList.addNode(
                             nodeInfo
@@ -300,7 +301,7 @@ public class StandardNode implements Node<SocketAddress> {
                                 node.MAXIMUM_PRIORITY
                         );
 
-                        NodeInfoImpl info = channel.attachment();
+                        StandardNodeInfo info = channel.attachment();
                         info.setState(NodeState.CLUSTER_CONNECTED);
 
                     }
@@ -358,7 +359,7 @@ public class StandardNode implements Node<SocketAddress> {
         public void onReadRoundEnd(IoChannel ioChannel) {
 
             try {
-                NodeInfoImpl nodeInfo = ioChannel.attachment();
+                StandardNodeInfo nodeInfo = ioChannel.attachment();
                 if (nodeInfo != null) nodeInfo.sendAck();
             }catch (Throwable e)
             {
@@ -381,10 +382,9 @@ public class StandardNode implements Node<SocketAddress> {
 
     private ClusterLevelEventHandler clusterLevelEventHandler;
     private IoChannelCenter ioChannelCenter;
-    private NodeInfoImpl currentNodeInfo;
-    private ClusterImpl cluster;
+    private StandardNodeInfo currentNodeInfo;
+    private StandardCluster cluster;
     private NodesListManager nodesList;
-    private AcknowledgeSender acknowledgeSender;
     private AcknowledgeHandler acknowledgeHandler;
     private final Object _sync = new Object();
     private final MessageServiceManagerImpl serviceManager;
@@ -450,7 +450,6 @@ public class StandardNode implements Node<SocketAddress> {
                 return "EMPTY";
             }
         });
-        acknowledgeSender = new AcknowledgeSender(this);
         acknowledgeHandler = new AcknowledgeHandler();
         serviceManager = new MessageServiceManagerImpl(this);
 
@@ -470,24 +469,26 @@ public class StandardNode implements Node<SocketAddress> {
 
     @Override
     public NodeInfo info() {
-
+        assertIfDisposed();
         return currentNodeInfo;
     }
 
 
     @Override
     public IConfiguration configurations() {
+        assertIfDisposed();
         return nodeConfigs.asUndefinableConfiguration();
     }
 
     @Override
     public MessageServiceManager messageServiceManager() {
+        assertIfDisposed();
         return serviceManager;
     }
 
 
     @Override
-    public void joinCluster(NodeAddress<SocketAddress> address) throws IOException {
+    public void joinCluster(NodeAddress<SocketAddress> address) throws Exception {
 
         synchronized (_sync) {
 
@@ -512,14 +513,6 @@ public class StandardNode implements Node<SocketAddress> {
             }
         }
 
-    }
-
-    private void doJoin(NodeAddress<SocketAddress> address , String password)
-    {
-        new JoinEventListener(this)
-                .join(
-                        address , password
-                );
     }
 
     @Override
@@ -558,6 +551,16 @@ public class StandardNode implements Node<SocketAddress> {
             }
         }
     }
+
+    private void doJoin(NodeAddress<SocketAddress> address , String password)
+    {
+        new JoinEventListener(this)
+                .join(
+                        address , password
+                );
+    }
+
+
 
     private void doLeave() throws Throwable
     {
@@ -599,12 +602,12 @@ public class StandardNode implements Node<SocketAddress> {
         return cluster.nextID();
     }
 
-    final NodeInfoImpl currentClusterLeader()
+    final StandardNodeInfo currentClusterLeader()
     {
         return cluster.leader();
     }
 
-    final void releaseAllEnqueuedAcknowledgesListener(NodeInfoImpl info)
+    final void releaseAllEnqueuedAcknowledgesListener(StandardNodeInfo info)
     {
         for(byte i=1;i<11;i++) {
             acknowledgeHandler.handleAcknowledge(
@@ -617,7 +620,7 @@ public class StandardNode implements Node<SocketAddress> {
         }
     }
 
-    public final void dispose()
+    final void dispose()
     {
         synchronized (_sync) {
 
@@ -643,6 +646,7 @@ public class StandardNode implements Node<SocketAddress> {
         }
 
     }
+
 
 
 
@@ -684,6 +688,10 @@ public class StandardNode implements Node<SocketAddress> {
     }
 
 
+    private void assertIfDisposed()
+    {
+        Assertion.ifTrue("node disposed" , disposed);
+    }
 
 
 
@@ -713,7 +721,7 @@ public class StandardNode implements Node<SocketAddress> {
             SocketAddress address = nodeConfigs.get(NodeConfigurations.NODE_ADDRESS);
             ifNull("node address not set yet" , address);
             logger.information("Init current node information");
-            currentNodeInfo = new NodeInfoImpl(-1 , -1 ,
+            currentNodeInfo = new StandardNodeInfo(-1 , -1 ,
                     new NodeSocketAddress(address), false , true , this , null);
         }
     }
@@ -748,7 +756,7 @@ public class StandardNode implements Node<SocketAddress> {
 
         if(cluster==null)
         {
-            cluster = new ClusterImpl(nodesList);
+            cluster = new StandardCluster(nodesList);
         }
     }
 
@@ -763,7 +771,7 @@ public class StandardNode implements Node<SocketAddress> {
         if(messageType>=0 && messageType<=2) {
 
 
-            NodeInfoImpl info = ioChannel.attachment();
+            StandardNodeInfo info = ioChannel.attachment();
 
             long receiveTime = cluster.clusterTime();
             int messageId = Utils.getInt(data);
@@ -808,7 +816,7 @@ public class StandardNode implements Node<SocketAddress> {
             clusterLevelEventHandler.handleClusterLevelEvent(ClusterLevelEvent.dataEvent(ioChannel, new ByteBufferArray(data)));
         }
         else if(messageType == MessageTypes.ACKNOWLEDGE) {
-            NodeInfoImpl info = ioChannel.attachment();
+            StandardNodeInfo info = ioChannel.attachment();
             final byte count = Utils.getByte(data);
             for(int i=0;i<count;i++) {
                 final byte ackPriority = Utils.getByte(data);
@@ -866,7 +874,7 @@ public class StandardNode implements Node<SocketAddress> {
         ifFalse("nodes not synced" ,
                 nodesList.setNextLeader() == currentNodeInfo);
         cluster.setState(ClusterState.SYNCHRONIZED);
-        acknowledgeSender.start();
+
         acknowledgeHandler.start();
         runMessageServiceEventHandler();
 
@@ -905,7 +913,7 @@ public class StandardNode implements Node<SocketAddress> {
     }
 
 
-    public Timer sharedTimer() {
+    Timer sharedTimer() {
         return sharedTimer;
     }
 

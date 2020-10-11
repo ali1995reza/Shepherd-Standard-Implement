@@ -3,11 +3,11 @@ package shepherd.standard.cluster.node;
 class AcknowledgeResponse {
 
     private final int ackId;
-    private final NodeInfoImpl node;
+    private final StandardNodeInfo node;
     private final int code;
     private final byte priority;
 
-    AcknowledgeResponse(int ack , int c , NodeInfoImpl info , byte priority)
+    AcknowledgeResponse(int ack , int c , StandardNodeInfo info , byte priority)
     {
         ackId = ack;
         node = info;
@@ -16,7 +16,7 @@ class AcknowledgeResponse {
     }
 
 
-    AcknowledgeResponse(int ack, NodeInfoImpl info , byte priority)
+    AcknowledgeResponse(int ack, StandardNodeInfo info , byte priority)
     {
         this(ack , 1 , info , priority);
     }
@@ -30,7 +30,7 @@ class AcknowledgeResponse {
         return ackId;
     }
 
-    public NodeInfoImpl node() {
+    public StandardNodeInfo node() {
         return node;
     }
 

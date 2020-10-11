@@ -118,7 +118,7 @@ class ClusterStateTracker {
     private final Map<SerializableNodeInfo , DistributeAnnounce> connectAnnounces;
     private Consumer<DistributeAnnounce> onAnnounceDone;
     private final StandardNode node;
-    private final ClusterImpl cluster;
+    private final StandardCluster cluster;
 
     private final Function<SerializableNodeInfo , DistributeAnnounce> connectCreator = new Function<SerializableNodeInfo, DistributeAnnounce>() {
         @Override
@@ -139,7 +139,7 @@ class ClusterStateTracker {
         this.disconnectAnnounces = new ConcurrentHashMap<>();
         this.connectAnnounces = new ConcurrentHashMap<>();
         this.node = node;
-        this.cluster = (ClusterImpl) node.cluster();
+        this.cluster = (StandardCluster) node.cluster();
     }
 
 

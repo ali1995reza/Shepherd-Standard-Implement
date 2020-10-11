@@ -17,13 +17,13 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Timer;
 
-class NodeInfoImpl implements NodeInfo {
+final class StandardNodeInfo implements NodeInfo {
 
     private final static class StatisticsImpl implements NodeStatistics {
 
-        private final NodeInfoImpl info;
+        private final StandardNodeInfo info;
 
-        private StatisticsImpl(NodeInfoImpl info) {
+        private StatisticsImpl(StandardNodeInfo info) {
             this.info = info;
         }
 
@@ -98,12 +98,12 @@ class NodeInfoImpl implements NodeInfo {
 
     private final NodeStatistics statistics;
 
-    public NodeInfoImpl(int id ,
-                        long joinTime ,
-                        NodeAddress<SocketAddress> address ,
-                        boolean isLeader  ,
-                        boolean isCurrentNode,
-                        StandardNode node , IoChannel ioChannel)
+    public StandardNodeInfo(int id ,
+                            long joinTime ,
+                            NodeAddress<SocketAddress> address ,
+                            boolean isLeader  ,
+                            boolean isCurrentNode,
+                            StandardNode node , IoChannel ioChannel)
     {
         this.id = id;
         this.joinTime = joinTime;
@@ -126,7 +126,7 @@ class NodeInfoImpl implements NodeInfo {
     }
 
 
-    public NodeInfoImpl setHashId(String hashId) {
+    public StandardNodeInfo setHashId(String hashId) {
         this.hashId = hashId;
         return this;
     }
@@ -342,9 +342,9 @@ class NodeInfoImpl implements NodeInfo {
 
 
 
-    final static NodeInfoImpl parseSerializedInfo(SerializableNodeInfo info , StandardNode node , IoChannel ioChannel)
+    final static StandardNodeInfo parseSerializedInfo(SerializableNodeInfo info , StandardNode node , IoChannel ioChannel)
     {
-        return new NodeInfoImpl(
+        return new StandardNodeInfo(
                 info.id() ,
                 info.joinTime() ,
                 new NodeSocketAddress(info.address()) ,

@@ -20,7 +20,7 @@ import java.util.*;
 
 import static shepherd.standard.cluster.node.ClusterProtocolConstants.*;
 
-class ClusterLevelEventHandler {
+final class ClusterLevelEventHandler {
 
 
     private final static class DistributeSetToken implements AsynchronousResultListener<Answer<Object>>
@@ -118,6 +118,7 @@ class ClusterLevelEventHandler {
             handleReceivedQuestion(question);
         }
     };
+
     private boolean leaving = false;
     private boolean stop = false;
     private ClusterConnectToken connectToken;
@@ -172,8 +173,8 @@ class ClusterLevelEventHandler {
         {
             //so want to leave !
 
-            NodeInfoImpl info =
-                    (NodeInfoImpl) message.metadata().sender();
+            StandardNodeInfo info =
+                    (StandardNodeInfo) message.metadata().sender();
 
             info.setState(NodeState.LEAVING);
         }else if(message.data() instanceof DisconnectAnnounce)
@@ -233,7 +234,7 @@ class ClusterLevelEventHandler {
             logger.information("leave accept question accepted for node [{}]" ,
                     question.metadata().sender().id());
             question.response(Yes.YES , AsynchronousResultListener.EMPTY);
-            NodeInfoImpl info = (NodeInfoImpl) question.metadata().sender();
+            StandardNodeInfo info = (StandardNodeInfo) question.metadata().sender();
             info.setState(NodeState.LEFT);
         }else
         {
@@ -282,7 +283,7 @@ class ClusterLevelEventHandler {
             return;
         }
 
-        NodeInfoImpl info = new NodeInfoImpl(-1
+        StandardNodeInfo info = new StandardNodeInfo(-1
                 , -1
                 , null, false , false ,
                 node , event.channel());
@@ -298,7 +299,7 @@ class ClusterLevelEventHandler {
     private void handleDisconnectEvent(ClusterLevelEvent event) throws Throwable {
 
 
-        NodeInfoImpl info  = event.channel().attachment();
+        StandardNodeInfo info  = event.channel().attachment();
         if(info==null){
             logger.warning("a channel without attached information disconnected");
             return;
@@ -353,13 +354,13 @@ class ClusterLevelEventHandler {
         {
             JoinRequest joinRequest = (JoinRequest) data;
             //so handleBy it please !
-            NodeInfoImpl nodeInfo = event.channel().attachment();
+            StandardNodeInfo nodeInfo = event.channel().attachment();
 
 
 
             if(nodeInfo.state().isNot(NodeState.CONNECTING))
             {
-                logger.warning("a node with state that is not CONNECTING send a cluster level event - Node : {}" , nodeInfo);
+                logger.warning("a node with state that is not CONNECTING send a cluster level event data - Node : {}" , nodeInfo);
                 return;
             }
 
@@ -377,7 +378,7 @@ class ClusterLevelEventHandler {
 
 
                 int newId = node.clusterNextId();
-                NodeInfoImpl info = event.channel().attachment();
+                StandardNodeInfo info = event.channel().attachment();
                 info.setId(newId);
                 info.setAddress(new NodeSocketAddress(joinRequest.nodeAddress()));
                 info.setJoinTime(node.cluster().clusterTime());
@@ -412,7 +413,7 @@ class ClusterLevelEventHandler {
 
                 //for now just skip this please !
 
-                NodeInfoImpl leaderNode = node.currentClusterLeader();
+                StandardNodeInfo leaderNode = node.currentClusterLeader();
 
 
                 event.channel().send(CLSTR_MSG_SRLIZR.serialize(
@@ -445,7 +446,7 @@ class ClusterLevelEventHandler {
             }
 
 
-            NodeInfoImpl info = event.channel().attachment();
+            StandardNodeInfo info = event.channel().attachment();
             info.setAddress(new NodeSocketAddress(request.info().address()));
             info.setId(request.info().id());
             info.setJoinTime(request.info().joinTime());
@@ -466,7 +467,7 @@ class ClusterLevelEventHandler {
         }else if(data instanceof ReadyAnnounce)
         {
             ReadyAnnounce announce = (ReadyAnnounce) data;
-            NodeInfoImpl info = event.channel().attachment();
+            StandardNodeInfo info = event.channel().attachment();
             node.nodesList().addNode(info);
 
             if(!announce.joinHash().equals(info.hashId()))
@@ -521,14 +522,14 @@ class ClusterLevelEventHandler {
                         if(i == node.info())
                         {
                             response.setHashId(connectAnnounce.hashId());
-                            NodeInfoImpl info = (NodeInfoImpl) node.info();
+                            StandardNodeInfo info = (StandardNodeInfo) node.info();
                             response.setInfo(info.toSerializableInfo());
                         }
                     }
 
                     String hashId = node.hashCalculator().calculateHash();
                     node.hashCalculator().refresh();
-                    NodeInfoImpl info = announce.channel().attachment();
+                    StandardNodeInfo info = announce.channel().attachment();
                     info.setHashId(hashId);
 
                     announce.channel().send(
@@ -547,7 +548,7 @@ class ClusterLevelEventHandler {
                     if(isCurrentNodeLeader())
                     {
                         logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
-                        NodeInfoImpl nodeInfo  = node.nodesList().fastFindById(
+                        StandardNodeInfo nodeInfo  = node.nodesList().fastFindById(
                                 announce.relatedNode()
                                 .id()
                         );
@@ -561,7 +562,7 @@ class ClusterLevelEventHandler {
                     logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
 
 
-                    NodeInfoImpl nodeInfo  = node.nodesList().fastFindById(
+                    StandardNodeInfo nodeInfo  = node.nodesList().fastFindById(
                             announce.relatedNode()
                                     .id()
                     );
@@ -656,7 +657,7 @@ class ClusterLevelEventHandler {
 
             leaving = true;
 
-            NodeInfoImpl nodeInfo = (NodeInfoImpl) node.info();
+            StandardNodeInfo nodeInfo = (StandardNodeInfo) node.info();
 
             nodeInfo.setState(NodeState.LEAVING);
 
@@ -684,7 +685,7 @@ class ClusterLevelEventHandler {
             return false;
         }
 
-        for(NodeInfoImpl nodeInfo:node.nodesList().immutableList())
+        for(StandardNodeInfo nodeInfo:node.nodesList().immutableList())
         {
             if(nodeInfo.address().address().equals(request.nodeAddress())) {
                 logger.warning("a join request with exists address detected , address : {}" ,request.nodeAddress());

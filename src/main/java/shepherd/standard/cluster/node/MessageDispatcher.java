@@ -302,7 +302,7 @@ class MessageDispatcher {
 
         assertIfDataIsNull(data);
 
-        final NodeInfoImpl[] targets = nodesList.immutableList();
+        final StandardNodeInfo[] targets = nodesList.immutableList();
         final int numberOfAllDestinationNodes = targets.length-1;
 
         requiredAcknowledges = normalizeAndCheckNumberOfAcknowledges(requiredAcknowledges ,
@@ -345,7 +345,7 @@ class MessageDispatcher {
 
         assertIfDataIsNull(data);
 
-        final NodeInfoImpl[] targets = nodesList.immutableList();
+        final StandardNodeInfo[] targets = nodesList.immutableList();
         final int numberOfAllDestinationNodes = targets.length-1;
 
 
@@ -388,7 +388,7 @@ class MessageDispatcher {
 
     private MessageMetadata bufferData(final int serviceId ,
                             final byte serviceHeader ,
-                            final NodeInfoImpl[] targets ,
+                            final StandardNodeInfo[] targets ,
                             ByteBuffer[] data ,
                             final AcknowledgeImpl acknowledge  ,
                             final AnswerImpl answer)
@@ -424,7 +424,7 @@ class MessageDispatcher {
 
             data = Utils.duplicateAsOnlyReadable(data);
 
-            for (NodeInfoImpl info : targets) {
+            for (StandardNodeInfo info : targets) {
                 if (info == currentNodeInfo)
                     continue;
                 else {
@@ -501,7 +501,7 @@ class MessageDispatcher {
                     acknowledge.notifyObject(0);
                 else {
 
-                    NodeInfoImpl info = nodesList.fastFindById(i);
+                    StandardNodeInfo info = nodesList.fastFindById(i);
 
                     if (info == null) {
                         acknowledge.notifyObject(0);
@@ -575,7 +575,7 @@ class MessageDispatcher {
                     continue;
                 else {
 
-                    NodeInfoImpl info = nodesList.fastFindById(i);
+                    StandardNodeInfo info = nodesList.fastFindById(i);
 
                     if(info!=null)
                     {
@@ -599,7 +599,7 @@ class MessageDispatcher {
 
     private MessageMetadata bufferData(final int serviceId ,
                                        final byte serviceHeader ,
-                                       final NodeInfoImpl[] targets ,
+                                       final StandardNodeInfo[] targets ,
                                        ByteBuffer[] data)
     {
         lock();
@@ -632,7 +632,7 @@ class MessageDispatcher {
 
             data = Utils.duplicateAsOnlyReadable(data );
 
-            for (NodeInfoImpl info : targets) {
+            for (StandardNodeInfo info : targets) {
                 if (info == currentNodeInfo)
                     continue;
                 else {

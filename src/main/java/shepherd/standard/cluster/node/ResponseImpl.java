@@ -2,7 +2,6 @@ package shepherd.standard.cluster.node;
 
 import shepherd.api.cluster.node.NodeInfo;
 import shepherd.api.message.Response;
-
 class ResponseImpl<T> extends MessageImpl<T> implements Response<T> {
 
 

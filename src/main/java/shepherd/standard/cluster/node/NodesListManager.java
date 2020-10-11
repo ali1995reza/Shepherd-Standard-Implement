@@ -11,36 +11,36 @@ import java.util.function.Predicate;
 class NodesListManager implements ClusterSchema {
 
 
-    private HashMap<Integer , NodeInfoImpl> immutableMap;
+    private HashMap<Integer , StandardNodeInfo> immutableMap;
     private ConcurrentHashMap<Integer , NodeInfo> mutableMap;
     private Map<Integer , NodeInfo> unModifiableMap;
-    private NodeInfoImpl[] immutableList;
-    private List<NodeInfoImpl> mutableList;
-    private NodeInfoImpl[] listMap;
+    private StandardNodeInfo[] immutableList;
+    private List<StandardNodeInfo> mutableList;
+    private StandardNodeInfo[] listMap;
 
     private final Object _sync = new Object();
     private int size = 0;
 
-    private NodeInfoImpl leader;
+    private StandardNodeInfo leader;
 
     NodesListManager()
     {
         immutableMap = new HashMap<>();
         mutableMap = new ConcurrentHashMap<>();
         unModifiableMap = Collections.unmodifiableMap(mutableMap);
-        immutableList = new NodeInfoImpl[0];
-        listMap = new NodeInfoImpl[0];
+        immutableList = new StandardNodeInfo[0];
+        listMap = new StandardNodeInfo[0];
         mutableList = new ArrayList<>();
     }
 
 
-    NodeInfoImpl setNextLeader()
+    StandardNodeInfo setNextLeader()
     {
         synchronized (_sync)
         {
-            NodeInfoImpl nextLeader = immutableList[0];
+            StandardNodeInfo nextLeader = immutableList[0];
 
-            for(NodeInfoImpl info:immutableList)
+            for(StandardNodeInfo info:immutableList)
             {
                 if(info == nextLeader)continue;
 
@@ -71,9 +71,9 @@ class NodesListManager implements ClusterSchema {
     @Override
     public int[] filterNodes(Function<NodeInfo, Boolean> filter) {
         List<NodeInfo> arrayList = new ArrayList<>();
-        NodeInfoImpl[] list = immutableList;
+        StandardNodeInfo[] list = immutableList;
 
-        for(NodeInfoImpl nodeInfo : list)
+        for(StandardNodeInfo nodeInfo : list)
         {
             if(filter.apply(nodeInfo))
                 arrayList.add(nodeInfo);
@@ -88,12 +88,12 @@ class NodesListManager implements ClusterSchema {
         return nodes;
     }
 
-    NodeInfoImpl leaderInfoImpl()
+    StandardNodeInfo leaderInfoImpl()
     {
         return leader;
     }
 
-    void addNode(NodeInfoImpl info)
+    void addNode(StandardNodeInfo info)
     {
         synchronized (_sync)
         {
@@ -103,7 +103,7 @@ class NodesListManager implements ClusterSchema {
             if(info.id()<0)
                 throw new IllegalStateException("node id cant less than 0");
 
-            HashMap<Integer , NodeInfoImpl> newMap = copyImmutableMap();
+            HashMap<Integer , StandardNodeInfo> newMap = copyImmutableMap();
             newMap.put(info.id() , info);
             mutableMap.put(info.id() , info);
             immutableMap = newMap;
@@ -115,14 +115,14 @@ class NodesListManager implements ClusterSchema {
     }
 
 
-    void removeNode(NodeInfoImpl info)
+    void removeNode(StandardNodeInfo info)
     {
         synchronized (_sync)
         {
             if(!immutableMap.containsValue(info))
                 throw new IllegalStateException("this immutableList dose not contains this node");
 
-            HashMap<Integer , NodeInfoImpl> newMap = copyImmutableMap();
+            HashMap<Integer , StandardNodeInfo> newMap = copyImmutableMap();
             newMap.remove(info.id() , info);
             mutableMap.remove(info.id() , info);
             immutableMap = newMap;
@@ -141,7 +141,7 @@ class NodesListManager implements ClusterSchema {
             if(!immutableMap.containsKey(id))
                 throw new IllegalStateException("this immutableList dose not contains node with this id");
 
-            HashMap<Integer , NodeInfoImpl> newMap = copyImmutableMap();
+            HashMap<Integer , StandardNodeInfo> newMap = copyImmutableMap();
             newMap.remove(id);
             mutableMap.remove(id);
             immutableMap = newMap;
@@ -155,7 +155,7 @@ class NodesListManager implements ClusterSchema {
 
 
 
-    Map<Integer , NodeInfoImpl> immutableMap()
+    Map<Integer , StandardNodeInfo> immutableMap()
     {
         return immutableMap;
     }
@@ -170,17 +170,17 @@ class NodesListManager implements ClusterSchema {
         return unModifiableMap;
     }
 
-    NodeInfoImpl[] immutableList()
+    StandardNodeInfo[] immutableList()
     {
         return immutableList;
     }
 
-    List<NodeInfoImpl> mutableList()
+    List<StandardNodeInfo> mutableList()
     {
         return mutableList;
     }
 
-    NodeInfoImpl fastFindById(final int id)
+    StandardNodeInfo fastFindById(final int id)
     {
         if(id<0 || listMap.length<=id)
             return null;
@@ -188,7 +188,7 @@ class NodesListManager implements ClusterSchema {
         return listMap[id];
     }
 
-    NodeInfoImpl findById(int id)
+    StandardNodeInfo findById(int id)
     {
         return immutableMap.get(id);
     }
@@ -198,11 +198,11 @@ class NodesListManager implements ClusterSchema {
         return size;
     }
 
-    private void removeFromList(final NodeInfoImpl info)
+    private void removeFromList(final StandardNodeInfo info)
     {
-        if(!mutableList.removeIf(new Predicate<NodeInfoImpl>() {
+        if(!mutableList.removeIf(new Predicate<StandardNodeInfo>() {
             @Override
-            public boolean test(NodeInfoImpl i) {
+            public boolean test(StandardNodeInfo i) {
                 return i==info;
             }
         })){
@@ -210,7 +210,7 @@ class NodesListManager implements ClusterSchema {
             throw new IllegalStateException("this node is not in list");
         }
 
-        NodeInfoImpl[] newList = new NodeInfoImpl[immutableList.length-1];
+        StandardNodeInfo[] newList = new StandardNodeInfo[immutableList.length-1];
         for(int i=0;i<newList.length;i++)
         {
             newList[i] = mutableList.get(i);
@@ -222,16 +222,16 @@ class NodesListManager implements ClusterSchema {
 
     private void removeFromList(final int id)
     {
-        if(!mutableList.removeIf(new Predicate<NodeInfoImpl>() {
+        if(!mutableList.removeIf(new Predicate<StandardNodeInfo>() {
             @Override
-            public boolean test(NodeInfoImpl info) {
+            public boolean test(StandardNodeInfo info) {
                 return info.id()==id;
             }
         })){
 
             throw new IllegalStateException("there is no node with this id in list");
         }
-        NodeInfoImpl[] newList = new NodeInfoImpl[immutableList.length-1];
+        StandardNodeInfo[] newList = new StandardNodeInfo[immutableList.length-1];
 
         for(int i=0;i<newList.length;i++)
         {
@@ -242,10 +242,10 @@ class NodesListManager implements ClusterSchema {
     }
 
 
-    private void addToList(final NodeInfoImpl info)
+    private void addToList(final StandardNodeInfo info)
     {
         mutableList.add(info);
-        NodeInfoImpl[] newList = new NodeInfoImpl[immutableList.length+1];
+        StandardNodeInfo[] newList = new StandardNodeInfo[immutableList.length+1];
         for(int i=0;i<newList.length;i++)
         {
             newList[i] = mutableList.get(i);
@@ -254,7 +254,7 @@ class NodesListManager implements ClusterSchema {
         immutableList = newList;
     }
 
-    private void removeFromListMap(final NodeInfoImpl info)
+    private void removeFromListMap(final StandardNodeInfo info)
     {
         if(fastFindById(info.id())!=null && fastFindById(info.id()) == info) {
             listMap[info.id()] = null;
@@ -268,11 +268,11 @@ class NodesListManager implements ClusterSchema {
         }
     }
 
-    private void addToListMap(final NodeInfoImpl info)
+    private void addToListMap(final StandardNodeInfo info)
     {
         if(info.id()>listMap.length-1)
         {
-            NodeInfoImpl[] newList = new NodeInfoImpl[info.id()+1];
+            StandardNodeInfo[] newList = new StandardNodeInfo[info.id()+1];
             for(int i=0;i<listMap.length;i++)
             {
                 newList[i] = listMap[i];
@@ -286,10 +286,33 @@ class NodesListManager implements ClusterSchema {
         }
     }
 
-    private HashMap<Integer , NodeInfoImpl> copyImmutableMap()
+    private HashMap<Integer , StandardNodeInfo> copyImmutableMap()
     {
 
         return (HashMap) immutableMap.clone();
     }
 
+    void clear()
+    {
+        immutableMap.clear();
+        mutableMap.clear();
+        clearList(immutableList);
+        mutableList.clear();
+        clearList(listMap);
+
+        immutableMap = null;
+        mutableMap = null;
+        unModifiableMap = null;
+        immutableList = null;
+        mutableList = null;
+        listMap = null;
+    }
+
+    private final static <T> void clearList(T[] obj)
+    {
+        for(int i=0;i<obj.length;i++)
+        {
+            obj[i] = null;
+        }
+    }
 }

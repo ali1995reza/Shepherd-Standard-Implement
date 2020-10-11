@@ -11,7 +11,7 @@ import shepherd.utils.concurrency.threaddispatcher.simple.dispatcher.SimpleDispa
 
 import java.util.ArrayList;
 
-class ClusterEventImpl implements ClusterEvent {
+final class ClusterEventImpl implements ClusterEvent {
 
     private ArrayList<ClusterEventListener> listeners;
     private ArrayList<ClusterEventListener> topList;

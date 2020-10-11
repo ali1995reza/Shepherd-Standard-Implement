@@ -7,7 +7,7 @@ import shepherd.utils.concurrency.waitobject.IWaitObject;
 
 import java.util.function.Consumer;
 
-class AcknowledgeImpl implements IWaitObject<AcknowledgeImpl> , Acknowledge {
+final class AcknowledgeImpl implements IWaitObject<AcknowledgeImpl> , Acknowledge {
 
     private int numberOfFailedAcks;
     private int numberOfSuccessAcks;

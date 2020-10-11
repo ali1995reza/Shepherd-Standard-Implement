@@ -11,6 +11,8 @@ public class NodeConfigurations {
             new ConfigurationKey<>("node.address");
     public final static ConfigurationKey<Integer> NUMBER_OF_MESSAGE_EVENT_HANDLER_THREADS =
             new ConfigurationKey<>("number.of.message.event.handler.threads") ;
+
+    @Deprecated
     public final static ConfigurationKey<Integer> ACKNOWLEDGE_SEND_INTERVAL =
             new ConfigurationKey<>("acknowledge.send.interval");
     public final static ConfigurationKey<Integer> NUMBER_OF_ACKNOWLEDGE_HANDLER_THREADS =

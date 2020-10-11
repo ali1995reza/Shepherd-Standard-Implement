@@ -2,7 +2,7 @@ package shepherd.standard.cluster.node;
 
 import java.nio.ByteBuffer;
 
-class AcknowledgeMessageBuilder {
+final class AcknowledgeMessageBuilder {
 
     private final static class AckBuilder{
 

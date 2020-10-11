@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TimerTask;
 
-class AnswerImpl<T> implements Answer<T> {
+final class AnswerImpl<T> implements Answer<T> {
 
 
     private int numberOfPossibleResponses;

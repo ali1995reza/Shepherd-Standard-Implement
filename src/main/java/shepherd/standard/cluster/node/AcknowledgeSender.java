@@ -9,6 +9,8 @@ import shepherd.api.config.IConfiguration;
 import java.nio.channels.CancelledKeyException;
 import java.util.concurrent.CountDownLatch;
 
+
+@Deprecated
 class AcknowledgeSender {
 
     private int ackSendInterval;
@@ -50,7 +52,7 @@ class AcknowledgeSender {
                 break;
             }
 
-            for(NodeInfoImpl info: nodesList.immutableList())
+            for(StandardNodeInfo info: nodesList.immutableList())
             {
                 if(info==currentNode)
                     continue;

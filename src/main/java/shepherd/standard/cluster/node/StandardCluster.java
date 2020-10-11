@@ -1,5 +1,7 @@
 package shepherd.standard.cluster.node;
 
+import shepherd.api.cluster.Cluster;
+import shepherd.standard.assertion.Assertion;
 import shepherd.standard.config.Configuration;
 import shepherd.api.cluster.ClusterEvent;
 import shepherd.api.cluster.ClusterSchema;
@@ -9,7 +11,7 @@ import shepherd.api.config.IConfiguration;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 
-class ClusterImpl implements shepherd.api.cluster.Cluster {
+final class StandardCluster implements Cluster {
 
     private RuntimeMXBean mxBean;
     private long timeOffset = -1;
@@ -19,7 +21,7 @@ class ClusterImpl implements shepherd.api.cluster.Cluster {
     private final Object _sync = new Object();
     private final NodesListManager nodesList;
 
-    ClusterImpl(NodesListManager listManager)
+    StandardCluster(NodesListManager listManager)
     {
         mxBean = ManagementFactory.getRuntimeMXBean();
         nodesList = listManager;
@@ -37,13 +39,14 @@ class ClusterImpl implements shepherd.api.cluster.Cluster {
                 return i;
         }
 
-        throw new IllegalStateException();
+        Assertion.ifTrue("there is no availabe id" , true);
+        return -1;
     }
 
 
 
 
-    NodeInfoImpl leader()
+    StandardNodeInfo leader()
     {
 
         return nodesList.leaderInfoImpl();
@@ -113,5 +116,6 @@ class ClusterImpl implements shepherd.api.cluster.Cluster {
     public void stopAllServices()
     {
         clusterEvent.stop();
+        nodesList.clear();
     }
 }
