@@ -2,6 +2,7 @@ package shepherd.standard.cluster.node;
 
 import shepherd.utils.concurrency.threaddispatcher.SynchronizedDispatcher;
 import shepherd.utils.concurrency.threaddispatcher.exceptions.DispatcherException;
+import shepherd.utils.concurrency.threaddispatcher.simple.syncdispatcher.SimpleByteKeySynchronizedDispatcher;
 import shepherd.utils.concurrency.threaddispatcher.simple.syncdispatcher.SimpleSynchronizedDispatcher;
 
 class AcknowledgeHandler {
@@ -10,7 +11,7 @@ class AcknowledgeHandler {
 
     public AcknowledgeHandler()
     {
-        responseHandler = new SimpleSynchronizedDispatcher<>(1 , this::handle);
+        responseHandler = new SimpleByteKeySynchronizedDispatcher<>(1 , this::handle);
     }
 
     private void handle(byte priority , AcknowledgeResponse response)

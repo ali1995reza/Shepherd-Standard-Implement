@@ -1,5 +1,6 @@
 package shepherd.standard.cluster.node;
 
+import shepherd.api.cluster.ClusterState;
 import shepherd.standard.asynchrounous.SynchronizerListener;
 import shepherd.standard.cluster.node.clusterlevelmessage.*;
 import shepherd.standard.datachannel.IoChannel;
@@ -128,6 +129,7 @@ final class ClusterLevelEventHandler {
 
     private final ClusterStateTracker stateTracker;
 
+    private final StandardCluster cluster;
 
 
 
@@ -151,6 +153,7 @@ final class ClusterLevelEventHandler {
                 conf);
 
         stateTracker = new ClusterStateTracker(this.node);
+        cluster = (StandardCluster) node.cluster();
         stateTracker.setOnAnnounceDone(this::whenAnnounceDone);
 
         logger = LoggerFactory.factory().getLogger(this);
@@ -180,9 +183,13 @@ final class ClusterLevelEventHandler {
         }else if(message.data() instanceof DisconnectAnnounce)
         {
             stateTracker.announceDisconnect(message);
+            cluster.setState(ClusterState.SYNCHRONIZING);
+
         }else if(message.data() instanceof ConnectAnnounce)
         {
             stateTracker.announceConnect(message);
+            cluster.setState(ClusterState.SYNCHRONIZING);
+
         }else{
             logger.warning("an unrecognized message received {}" , message);
         }
@@ -217,9 +224,11 @@ final class ClusterLevelEventHandler {
             try {
                 question.response(Yes.YES , AsynchronousResultListener.EMPTY);
             } catch (MessageException e) {
-                //todo get log
                 logger.warning(e);
             }
+
+            cluster.setState(ClusterState.SYNCHRONIZING);
+
         }else {
             logger.warning("an unrecognized question received {}" , question);
         }
@@ -407,6 +416,8 @@ final class ClusterLevelEventHandler {
                         new DistributeSetToken(response, event.channel())
                 );
 
+                cluster.setState(ClusterState.SYNCHRONIZING);
+
 
             }else
             {
@@ -450,7 +461,6 @@ final class ClusterLevelEventHandler {
             info.setAddress(new NodeSocketAddress(request.info().address()));
             info.setId(request.info().id());
             info.setJoinTime(request.info().joinTime());
-            info.setState(NodeState.SYNCHRONIZING);
 
             ConnectAnnounce announce = new ConnectAnnounce(request.info());
 
@@ -497,7 +507,8 @@ final class ClusterLevelEventHandler {
     //-------------------------------------- cluster level events ----------------------------------
 
 
-    private void whenAnnounceDone(ClusterStateTracker.DistributeAnnounce announce)
+    private void whenAnnounceDone(ClusterStateTracker.DistributeAnnounce announce ,
+                                  ClusterStateTracker tracker)
     {
         try {
             if (announce.type().is(ClusterStateTracker.DistributeAnnounce.Type.CONNECT)) {
@@ -556,6 +567,7 @@ final class ClusterLevelEventHandler {
                         node.nodesList().removeNode(nodeInfo);
                     }else {
                         node.dispose();
+                        return;
                     }
                 }
                 else if(numberOfSuccesses >= announce.totalPossibleAnnouncers()/2+1) {
@@ -579,9 +591,17 @@ final class ClusterLevelEventHandler {
                 }
                 else {
                     node.dispose();
+                    return;
                 }
 
+
+
             }
+
+
+            if(!stateTracker.hasRemainingAnnounces())
+                cluster.setState(ClusterState.SYNCHRONIZED);
+
         }catch (Throwable e)
         {
             logger.error(e);
@@ -682,6 +702,12 @@ final class ClusterLevelEventHandler {
     {
         if(request.password()==null || request.password().isEmpty()){
             logger.warning("a join request with empty password detected");
+            return false;
+        }
+
+        if(cluster.state().isNot(ClusterState.SYNCHRONIZED))
+        {
+            logger.warning("a join request received but rejected cause cluster state is {}" , cluster.state());
             return false;
         }
 

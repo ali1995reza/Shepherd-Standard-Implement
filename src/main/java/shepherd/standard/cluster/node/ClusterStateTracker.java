@@ -9,6 +9,7 @@ import shepherd.api.message.Message;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -116,7 +117,7 @@ class ClusterStateTracker {
 
     private final Map<SerializableNodeInfo , DistributeAnnounce> disconnectAnnounces;
     private final Map<SerializableNodeInfo , DistributeAnnounce> connectAnnounces;
-    private Consumer<DistributeAnnounce> onAnnounceDone;
+    private BiConsumer<DistributeAnnounce , ClusterStateTracker> onAnnounceDone;
     private final StandardNode node;
     private final StandardCluster cluster;
 
@@ -170,7 +171,7 @@ class ClusterStateTracker {
     }
 
 
-    public void setOnAnnounceDone(Consumer<DistributeAnnounce> onAnnounceDone) {
+    public void setOnAnnounceDone(BiConsumer<DistributeAnnounce , ClusterStateTracker> onAnnounceDone) {
         ifNull("listener is null" , onAnnounceDone);
         this.onAnnounceDone = onAnnounceDone;
     }
@@ -185,6 +186,7 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(message.metadata().sender() , connectAnnounce))
         {
+            connectAnnounces.remove(connectAnnounce.connectedNode());
             handleAnnounce(distributeAnnounce);
         }
 
@@ -201,6 +203,7 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(message.metadata().sender() , disconnectAnnounce))
         {
+            disconnectAnnounces.remove(disconnectAnnounce.disconnectedNode());
             handleAnnounce(distributeAnnounce);
         }
     }
@@ -215,6 +218,7 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(node.info() , new DisconnectAnnounce(disconnected, left)))
         {
+            disconnectAnnounces.remove(disconnected);
             handleAnnounce(distributeAnnounce);
         }
     }
@@ -228,6 +232,7 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(node.info() , announce))
         {
+            connectAnnounces.remove(announce.connectedNode());
             handleAnnounce(distributeAnnounce);
         }
     }
@@ -235,7 +240,7 @@ class ClusterStateTracker {
 
     private final void handleAnnounce(DistributeAnnounce announce)
     {
-        onAnnounceDone.accept(announce);
+        onAnnounceDone.accept(announce , this);
 
         if(disconnectAnnounces.isEmpty() && connectAnnounces.isEmpty())
         {
@@ -267,6 +272,16 @@ class ClusterStateTracker {
         }
 
         return captured;
+    }
+
+    int numberOfRemainingAnnounces()
+    {
+        return disconnectAnnounces.size()+connectAnnounces.size();
+    }
+
+    boolean hasRemainingAnnounces()
+    {
+        return numberOfRemainingAnnounces()>0;
     }
 
 }

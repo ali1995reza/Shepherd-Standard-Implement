@@ -101,6 +101,8 @@ final class StandardCluster implements Cluster {
     void setState(ClusterState state)
     {
         synchronized (_sync) {
+            if(this.state.is(state))return;
+
             ClusterState lastState = this.state;
             this.state = state;
             clusterEvent.notifyClusterStateChanged(lastState , this.state);

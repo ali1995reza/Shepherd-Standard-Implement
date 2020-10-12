@@ -197,6 +197,10 @@ public class StandardNode implements Node<SocketAddress> {
                     node.currentNodeInfo
                             .setState(NodeState.SYNCHRONIZING);
 
+                    node.cluster.setState(
+                            ClusterState.SYNCHRONIZING
+                    );
+
                     for(SerializableNodeInfo info:joinResponse.nodes())
                     {
                         if(info.isLeader())
@@ -311,7 +315,7 @@ public class StandardNode implements Node<SocketAddress> {
 
 
                     ++state;
-
+                    node.cluster.setState(ClusterState.SYNCHRONIZED);
                     joinLatch.countDown();
 
                 }else

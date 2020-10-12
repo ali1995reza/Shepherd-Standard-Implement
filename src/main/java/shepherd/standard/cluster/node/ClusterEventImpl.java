@@ -6,6 +6,8 @@ import shepherd.api.cluster.ClusterEventListener;
 import shepherd.api.cluster.ClusterState;
 import shepherd.api.cluster.node.NodeInfo;
 import shepherd.api.cluster.node.NodeState;
+import shepherd.api.logger.Logger;
+import shepherd.api.logger.LoggerFactory;
 import shepherd.utils.concurrency.threaddispatcher.Dispatcher;
 import shepherd.utils.concurrency.threaddispatcher.simple.dispatcher.SimpleDispatcher;
 
@@ -19,6 +21,8 @@ final class ClusterEventImpl implements ClusterEvent {
     private Dispatcher<Object[]> dispatcher;
     private final boolean hasOwnThread;
 
+    private final Logger logger;
+
     public ClusterEventImpl(boolean hasOwnThread)
     {
         this.hasOwnThread = hasOwnThread;
@@ -28,6 +32,7 @@ final class ClusterEventImpl implements ClusterEvent {
 
         listeners = new ArrayList<>();
         topList = new ArrayList<>();
+        logger = LoggerFactory.factory().getLogger(this);
     }
 
 
@@ -173,6 +178,10 @@ final class ClusterEventImpl implements ClusterEvent {
 
     private final synchronized void callListeners(NodeInfo leader)
     {
+        if(hasOwnThread)
+        {
+            logger.information("Leader Changed , new leader : [{}]" , leader.id());
+        }
         for(ClusterEventListener listener:listeners)
         {
             try{
@@ -187,6 +196,10 @@ final class ClusterEventImpl implements ClusterEvent {
 
     private final synchronized void callTopListeners(NodeInfo info , NodeState lastState , NodeState currentState)
     {
+        if(hasOwnThread)
+        {
+            logger.information("Node [{}] state changed : {} --> {}" , info.id() , lastState , currentState);
+        }
         for(ClusterEventListener listener:topList)
         {
             try {
@@ -200,6 +213,10 @@ final class ClusterEventImpl implements ClusterEvent {
 
     private final synchronized void callTopListeners(ClusterState lastState , ClusterState currentState)
     {
+        if(hasOwnThread)
+        {
+            logger.information("Cluster state changed : {} --> {}" , lastState , currentState);
+        }
         for(ClusterEventListener listener:topList)
         {
             try {

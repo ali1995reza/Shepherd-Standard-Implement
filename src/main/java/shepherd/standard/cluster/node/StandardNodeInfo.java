@@ -73,7 +73,7 @@ final class StandardNodeInfo implements NodeInfo {
     }
 
 
-    private final static Logger logger = LoggerFactory.factory().getLogger(NodeInfo.class);
+    private final Logger logger;
 
 
     private NodeState state = NodeState.UNKNOWN;
@@ -120,9 +120,10 @@ final class StandardNodeInfo implements NodeInfo {
 
         lock = node.priorityLock();
 
-
         statistics = isCurrentNode?new ZeroStatistics():
                 new StatisticsImpl(this);
+
+        logger = LoggerFactory.factory().getLogger(this);
     }
 
 
@@ -182,11 +183,6 @@ final class StandardNodeInfo implements NodeInfo {
 
                 lock.unlock();
             }
-
-            logger.information(
-                    "node [{}] state changed : {} --> {}" ,
-                    id , lastState , state
-            );
 
             clusterEvent.notifyNodeStateChanged(this , lastState , this.state);
         }
@@ -292,7 +288,6 @@ final class StandardNodeInfo implements NodeInfo {
     public void setAsLeader()
     {
         isLeader = true;
-        logger.information("node {} is now leader" , id);
         clusterEvent.notifyLeaderChanged(this);
     }
 
