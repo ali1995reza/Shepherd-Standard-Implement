@@ -501,7 +501,7 @@ final class UnSecureUnPooledWriteBatch implements WriteBatch {
     }
 
     @Override
-    public  void cancelNow(IoState state) {
+    public void cancelNow(IoState state) {
         lock.lock();
         try {
             if (closeNow) {
@@ -510,6 +510,7 @@ final class UnSecureUnPooledWriteBatch implements WriteBatch {
             canAppend = false;
             closeNow = true;
             state.cancel();
+            signalIfWaitingForFlush();
         }finally {
             lock.unlock();
         }

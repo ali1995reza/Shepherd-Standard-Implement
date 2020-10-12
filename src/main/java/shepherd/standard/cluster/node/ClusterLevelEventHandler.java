@@ -272,8 +272,8 @@ final class ClusterLevelEventHandler {
                     handleConnectEvent(event);
                 else if(event.is(ClusterLevelEvent.Type.DATA_RECEIVED))
                     handleDataEvent(event);
-            } catch (Throwable throwable) {
-                //todo handle this shit !
+            } catch (Throwable e) {
+                logger.warning(e);
             }
         }
     }
@@ -315,19 +315,16 @@ final class ClusterLevelEventHandler {
         }
 
         if (info.state().isOneOf(NodeState.UNKNOWN , NodeState.CONNECTING)) {
-
             info.setState(NodeState.DISCONNECTED);
             return;
         }
 
         boolean left = info.state().is(NodeState.LEFT);
-
         info.setState(NodeState.DISCONNECTED);
+
         node.releaseAllEnqueuedAcknowledgesListener(info);
 
-        //it just local detected do not remove node
-        //node.nodesList().removeNode(info);
-
+        System.out.println("3");
 
         logger.information("disconnect announce sent for node [{}]" , info.id());
         maximumPriorityMessageService.

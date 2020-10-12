@@ -218,7 +218,7 @@ public class SocketChannelIoHandlerImpl extends AbstractSocketChannelIoHandler i
     @Override
     public void onException(Throwable e, IoOperation op)
     {
-        logger.exception("An exception occurs in "+op+" operation" , e);
+        logger.exception("an exception occurs in "+op+" operation" , e);
         closeNow();
     }
 

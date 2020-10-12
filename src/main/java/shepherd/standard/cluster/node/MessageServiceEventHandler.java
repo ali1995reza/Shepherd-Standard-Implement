@@ -1,6 +1,7 @@
 package shepherd.standard.cluster.node;
 
 
+import shepherd.standard.assertion.Assertion;
 import shepherd.standard.config.ConfigChangeResult;
 import shepherd.api.asynchronous.AsynchronousResultListener;
 import shepherd.api.config.ConfigurationChangeResult;
@@ -31,17 +32,11 @@ class MessageServiceEventHandler {
 
 
 
-    private final static void assertIfNull(Object o , String msg)
-    {
-        if(o == null) throw new NullPointerException(msg);
-    }
-
-
     MessageServiceEventHandler(MessageServiceManagerImpl serviceManager , StandardNode n , MessageDispatcher publicDispatcher)
     {
-        assertIfNull(serviceManager , "provided service manager is null");
-        assertIfNull(n , "provided node is null");
-        assertIfNull(publicDispatcher , "public message dispatcher is null");
+        Assertion.ifNull("provided service manager is null" , serviceManager);
+        Assertion.ifNull("provided node is null" , n);
+        Assertion.ifNull("public message dispatcher is null" , publicDispatcher );
 
         node = n;
         serviceConfig = node.configurations().createSubConfiguration("MessageService") ;

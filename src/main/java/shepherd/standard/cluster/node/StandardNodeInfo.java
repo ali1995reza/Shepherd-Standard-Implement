@@ -211,36 +211,35 @@ final class StandardNodeInfo implements NodeInfo {
     private final static byte MAXIMUM_PRIORITY = 10;
     final boolean send(ByteBuffer header , ByteBuffer[] data  , AcknowledgeImpl ack , int msgId , byte priority , int serviceId)
     {
-        try {
 
-            if(state==NodeState.CLUSTER_CONNECTED ||
-                    (state==NodeState.LEAVING && (serviceId==0 || serviceId==1))) {
-                try {
-                    acknowledgeNotifiers[priority].waitForNotify(ack, msgId);
-                }catch (Throwable e)
-                {
-                    logger.warning(e);
-                    ack.notifyObject(0);
-                    return false;
-                }
-                ioChannel.send(header, data , priority);
-                return true;
-            }else
+        if(state==NodeState.CLUSTER_CONNECTED ||
+                (state==NodeState.LEAVING && (serviceId==0 || serviceId==1))) {
+            try {
+                acknowledgeNotifiers[priority].waitForNotify(ack, msgId);
+            }catch (Throwable e)
             {
-                logger.warning("packet didn't send cause state is {}" , state);
-                acknowledgeNotifiers[priority].removeLastObject();
+                logger.warning(e);
                 ack.notifyObject(0);
                 return false;
             }
-
-
-        }catch (Throwable e)
+            try {
+                ioChannel.send(header, data , priority);
+            }catch (Throwable e)
+            {
+                //so must handleBy !
+                ack.notifyObject(0);
+                logger.warning("packet didn't send" , e);
+                return false;
+            }
+            return true;
+        }else
         {
-            //so must handleBy !
+            logger.warning("packet didn't send cause state is {}" , state);
             ack.notifyObject(0);
-            logger.warning("packet didn't send" , e);
             return false;
         }
+
+
     }
 
     final boolean send(ByteBuffer header , ByteBuffer[] data , byte priority , int serviceId)
