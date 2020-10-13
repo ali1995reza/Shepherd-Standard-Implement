@@ -17,11 +17,32 @@ import shepherd.api.message.exceptions.SerializeException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
 import java.util.*;
 
 import static shepherd.standard.cluster.node.ClusterProtocolConstants.*;
 
 final class ClusterLevelEventHandler {
+
+
+    private final class InActiveConnectedChannelRemover extends TimerTask {
+
+        private final IoChannel channel;
+
+        private InActiveConnectedChannelRemover(IoChannel channel) {
+            this.channel = channel;
+        }
+
+
+        @Override
+        public void run() {
+
+            if(objectLock.acquire(channel))
+            {
+                channel.closeNow();
+            }
+        }
+    }
 
 
     private final static class DistributeSetToken implements AsynchronousResultListener<Answer<Object>>
@@ -131,6 +152,8 @@ final class ClusterLevelEventHandler {
 
     private final StandardCluster cluster;
 
+    private final ObjectLock objectLock;
+
 
 
     ClusterLevelEventHandler(StandardNode node)
@@ -155,6 +178,8 @@ final class ClusterLevelEventHandler {
         stateTracker = new ClusterStateTracker(this.node);
         cluster = (StandardCluster) node.cluster();
         stateTracker.setOnAnnounceDone(this::whenAnnounceDone);
+
+        objectLock = new ObjectLock();
 
         logger = LoggerFactory.factory().getLogger(this);
 
@@ -299,6 +324,15 @@ final class ClusterLevelEventHandler {
 
 
         event.channel().attach(info);
+
+        InActiveConnectedChannelRemover remover =
+                new InActiveConnectedChannelRemover(event.channel());
+
+        objectLock.define(event.channel() , remover);
+
+        node.sharedTimer().schedule(
+                remover , 5000l
+        );
 
         info.setState(NodeState.CONNECTING);
         return;

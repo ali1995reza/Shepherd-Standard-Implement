@@ -3,7 +3,6 @@ package shepherd.standard.cluster.node;
 import shepherd.standard.assertion.Assertion;
 
 import java.util.*;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ObjectLock {
@@ -18,6 +17,7 @@ public class ObjectLock {
 
         private Object attachment;
         private final ReentrantLock lock;
+        private boolean removed;
 
         private MetaHolder() {
             this.lock = new ReentrantLock(false);
@@ -28,15 +28,19 @@ public class ObjectLock {
             return this;
         }
 
-        public boolean isCurrentThreadIsAcquisitor()
+        public boolean isCurrentThreadAcquisitor()
         {
             return lock.isHeldByCurrentThread();
         }
 
-        public MetaHolder acquire()
+        public boolean acquire()
         {
             lock.lock();
-            return this;
+            if(removed) {
+                lock.unlock();
+                return false;
+            }
+            return true;
         }
 
         public MetaHolder release()
@@ -44,6 +48,15 @@ public class ObjectLock {
             Assertion.ifFalse("current thread not control the lock" ,
                     lock.isHeldByCurrentThread());
             lock.unlock();
+            return this;
+        }
+
+        public MetaHolder releaseAndRemove()
+        {
+            Assertion.ifFalse("current thread not control the lock" ,
+                    lock.isHeldByCurrentThread());
+            lock.unlock();
+            removed = true;
             return this;
         }
 
@@ -63,7 +76,7 @@ public class ObjectLock {
         this.objects = new HashMap<>();
     }
 
-    public <T> T defineAndAcquire(Object o , Object attach)
+    public boolean defineAndAcquire(Object o , Object attach)
     {
         synchronized (objects)
         {
@@ -71,19 +84,17 @@ public class ObjectLock {
                     objects.containsKey(o));
 
             MetaHolder holder =
-                    MetaHolder.withAttachment(attach)
-                            .acquire();
+                    MetaHolder.withAttachment(attach);
             objects.put(
                     o ,
                     holder
             );
 
-
-            return holder.attachment();
+            return holder.acquire();
         }
     }
 
-    public <T> T define(Object o , Object attach)
+    public void define(Object o , Object attach)
     {
         synchronized (objects)
         {
@@ -97,19 +108,16 @@ public class ObjectLock {
                     o ,
                     holder
             );
-
-
-            return holder.attachment();
         }
     }
 
-    public <T> T acquire(Object o)
+    public boolean acquire(Object o)
     {
         synchronized (objects)
         {
             MetaHolder holder = objects.get(o);
-            Assertion.ifNull("there is no lock for this object" , holder);
-            return holder.acquire().attachment();
+            if(holder==null)return false;
+            return holder.acquire();
         }
     }
 
@@ -120,6 +128,16 @@ public class ObjectLock {
             MetaHolder holder = objects.get(o);
             Assertion.ifNull("there is no lock for this object" , holder);
             holder.release();
+        }
+    }
+
+    public void releaseAndRemove(Object o)
+    {
+        synchronized (objects)
+        {
+            MetaHolder holder = objects.remove(o);
+            Assertion.ifNull("there is no lock for this object" , holder);
+            holder.releaseAndRemove();
         }
     }
 
