@@ -178,7 +178,6 @@ class ClusterStateTracker {
 
     public final void announceConnect(Message<ConnectAnnounce> message)
     {
-        setClusterStateToSynchronizing();
         ConnectAnnounce connectAnnounce = message.data();
         DistributeAnnounce distributeAnnounce = getOrCreateConnectAnnounce(
                 connectAnnounce.connectedNode()
@@ -195,7 +194,6 @@ class ClusterStateTracker {
 
     public final void announceDisconnect(Message<DisconnectAnnounce> message)
     {
-        setClusterStateToSynchronizing();
         DisconnectAnnounce disconnectAnnounce = message.data();
         DistributeAnnounce distributeAnnounce = getOrCreateDisconnectAnnounce(
                 disconnectAnnounce.disconnectedNode()
@@ -211,7 +209,7 @@ class ClusterStateTracker {
 
     public final void localDisconnectAnnounce(SerializableNodeInfo disconnected, boolean left)
     {
-        setClusterStateToSynchronizing();
+
         DistributeAnnounce distributeAnnounce = getOrCreateDisconnectAnnounce(
                 disconnected
         );
@@ -225,7 +223,6 @@ class ClusterStateTracker {
 
     public final void localConnectAnnounce(IoChannel channel , ConnectAnnounce announce)
     {
-        setClusterStateToSynchronizing();
         DistributeAnnounce distributeAnnounce = getOrCreateConnectAnnounce(
                 announce.connectedNode()
         ).setChannel(channel);
@@ -250,14 +247,6 @@ class ClusterStateTracker {
     }
 
 
-    private final void setClusterStateToSynchronizing()
-    {
-        if(cluster.state().is(ClusterState.SYNCHRONIZED)) {
-            cluster.setState(
-                    ClusterState.SYNCHRONIZING
-            );
-        }
-    }
 
     private final Set<NodeInfo> captureNodes(SerializableNodeInfo target)
     {
