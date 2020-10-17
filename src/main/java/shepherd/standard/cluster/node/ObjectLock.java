@@ -60,6 +60,18 @@ public class ObjectLock {
             return this;
         }
 
+        public boolean acquireAndRemove()
+        {
+            if(acquire())
+            {
+                removed = true;
+                releaseAndRemove();
+                return true;
+            }
+
+            return false;
+        }
+
         public <T> T attachment()
         {
             Assertion.ifFalse("current thread not control the lock" ,
@@ -118,6 +130,16 @@ public class ObjectLock {
             MetaHolder holder = objects.get(o);
             if(holder==null)return false;
             return holder.acquire();
+        }
+    }
+
+    public boolean acquireAndRemove(Object o)
+    {
+        synchronized (objects)
+        {
+            MetaHolder holder = objects.remove(o);
+            if(holder==null)return false;
+            return holder.acquireAndRemove();
         }
     }
 

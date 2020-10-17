@@ -1,12 +1,7 @@
 package shepherd.standard.cluster.node;
 
-import shepherd.api.cluster.ClusterState;
-import shepherd.standard.asynchrounous.SynchronizerListener;
-import shepherd.standard.cluster.node.clusterlevelmessage.*;
-import shepherd.standard.datachannel.IoChannel;
-import shepherd.standard.message.standardserializer.ObjectSerializer;
 import shepherd.api.asynchronous.AsynchronousResultListener;
-import shepherd.api.cluster.node.NodeInfo;
+import shepherd.api.cluster.ClusterState;
 import shepherd.api.cluster.node.NodeState;
 import shepherd.api.config.ConfigurationKey;
 import shepherd.api.logger.Logger;
@@ -14,39 +9,20 @@ import shepherd.api.logger.LoggerFactory;
 import shepherd.api.message.*;
 import shepherd.api.message.exceptions.MessageException;
 import shepherd.api.message.exceptions.SerializeException;
+import shepherd.standard.cluster.node.clusterlevelmessage.*;
+import shepherd.standard.datachannel.IoChannel;
+import shepherd.standard.message.standardserializer.ObjectSerializer;
+import shepherd.standard.utils.TimerThread;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.UUID;
 
-import java.util.*;
+import static shepherd.standard.cluster.node.ClusterProtocolConstants.CLSTR_MSG_SRLIZR;
+import static shepherd.standard.cluster.node.ClusterProtocolConstants.createSuccessJoinResponse;
 
-import static shepherd.standard.cluster.node.ClusterProtocolConstants.*;
-
-
-final class ClusterLevelEventHandler {
-
-
-    private final class InActiveConnectedChannelRemover extends TimerTask {
-
-        private final IoChannel channel;
-
-        private InActiveConnectedChannelRemover(IoChannel channel) {
-            this.channel = channel;
-        }
-
-
-        @Override
-        public void run() {
-            if(objectLock.acquireAndRemove(channel))
-            {
-                channel.closeNow();
-                logger.information("come here");
-            }else {
-                logger.information("WTF");
-            }
-        }
-    }
-
+public class ClusterController extends TimerThread {
 
     private final static class DistributeSetToken implements AsynchronousResultListener<Answer<Object>>
     {
@@ -115,11 +91,6 @@ final class ClusterLevelEventHandler {
     }
 
 
-
-
-
-
-
     private final static int MAXIMUM_MESSAGE_SERVICE_ID = 0;
     private final static int MINIMUM_MESSAGE_SERVICE_ID = 1;
 
@@ -135,12 +106,12 @@ final class ClusterLevelEventHandler {
     private final MessageListener messageListener = new MessageListener() {
         @Override
         public void onMessageReceived(Message message) {
-            handleReceivedMessage(message);
+            put(message);
         }
 
         @Override
         public void onQuestionAsked(Question question) {
-            handleReceivedQuestion(question);
+            put(question);
         }
     };
 
@@ -155,21 +126,20 @@ final class ClusterLevelEventHandler {
 
     private final StandardCluster cluster;
 
-    private final ObjectLock objectLock;
 
 
-
-    ClusterLevelEventHandler(StandardNode node)
+    ClusterController(StandardNode node)
     {
+        super(1000l);
         this.node = node;
 
-        HashMap<ConfigurationKey , Object> conf = new HashMap<>();
+        HashMap<ConfigurationKey, Object> conf = new HashMap<>();
         conf.put(MessageServiceConfiguration.PRIORITY , MAXIMUM_PRIORITY);
         maximumPriorityMessageService = node.messageServiceManager()
                 .registerService(MAXIMUM_MESSAGE_SERVICE_ID,
-                new ObjectSerializer(true),
-                messageListener ,
-                conf);
+                        new ObjectSerializer(true),
+                        messageListener ,
+                        conf);
 
         conf.put(MessageServiceConfiguration.PRIORITY , MINIMUM_PRIORITY);
         minimumPriorityMessageService = node.
@@ -180,59 +150,10 @@ final class ClusterLevelEventHandler {
 
         stateTracker = new ClusterStateTracker(this.node);
         cluster = (StandardCluster) node.cluster();
-        stateTracker.setOnAnnounceDone(this::whenAnnounceDone);
-
-        objectLock = new ObjectLock();
+        //stateTracker.setOnAnnounceDone();
 
         logger = LoggerFactory.factory().getLogger(this);
 
-    }
-
-
-    //------------------------------------- Received Message ---------------------------------
-
-    private void handleReceivedMessage(Message message){
-        synchronized (_sync)
-        {
-            handleMessage(message);
-        }
-    }
-
-    private void handleMessage(Message message)
-    {
-        if(message.data() instanceof LeaveAnnounce)
-        {
-            //so want to leave !
-
-            StandardNodeInfo info =
-                    (StandardNodeInfo) message.metadata().sender();
-
-            info.setState(NodeState.LEAVING);
-        }else if(message.data() instanceof DisconnectAnnounce)
-        {
-            stateTracker.announceDisconnect(message);
-            cluster.setState(ClusterState.SYNCHRONIZING);
-
-        }else if(message.data() instanceof ConnectAnnounce)
-        {
-            stateTracker.announceConnect(message);
-            cluster.setState(ClusterState.SYNCHRONIZING);
-
-        }else{
-            logger.warning("an unrecognized message received {}" , message);
-        }
-    }
-
-    //------------------------------------- Received Message ---------------------------------
-
-
-    //------------------------------------- Received Question --------------------------------
-    private void handleReceivedQuestion(Question question)
-    {
-        synchronized (_sync)
-        {
-            handleQuestion(question);
-        }
     }
 
 
@@ -262,7 +183,6 @@ final class ClusterLevelEventHandler {
         }
     }
 
-
     private void handleLeaveAcceptQuestion(Question question) throws Exception
     {
         logger.information("leave question asked - node {}" , question.metadata().sender());
@@ -281,10 +201,30 @@ final class ClusterLevelEventHandler {
         }
     }
 
-    //------------------------------------- Received Question --------------------------------
+    private void handleMessage(Message message)
+    {
+        if(message.data() instanceof LeaveAnnounce)
+        {
+            //so want to leave !
 
+            StandardNodeInfo info =
+                    (StandardNodeInfo) message.metadata().sender();
 
-    //-------------------------------------- cluster level events ----------------------------------
+            info.setState(NodeState.LEAVING);
+        }else if(message.data() instanceof DisconnectAnnounce)
+        {
+            stateTracker.announceDisconnect(message);
+            cluster.setState(ClusterState.SYNCHRONIZING);
+
+        }else if(message.data() instanceof ConnectAnnounce)
+        {
+            stateTracker.announceConnect(message);
+            cluster.setState(ClusterState.SYNCHRONIZING);
+
+        }else{
+            logger.warning("an unrecognized message received {}" , message);
+        }
+    }
 
     public void handleClusterLevelEvent(ClusterLevelEvent event)
     {
@@ -311,15 +251,6 @@ final class ClusterLevelEventHandler {
     private void handleConnectEvent(ClusterLevelEvent event)
     {
 
-
-        if(!connected())
-        {
-            event.channel().closeNow();
-            logger.warning("a new connection {} opened but node stat not connected {}" ,
-                    event.channel() , node.info().state());
-            return;
-        }
-
         StandardNodeInfo info = new StandardNodeInfo(-1
                 , -1
                 , null, false , false ,
@@ -328,14 +259,6 @@ final class ClusterLevelEventHandler {
 
         event.channel().attach(info);
 
-        InActiveConnectedChannelRemover remover =
-                new InActiveConnectedChannelRemover(event.channel());
-
-        objectLock.define(event.channel() , remover);
-
-        node.sharedTimer().schedule(
-                remover , 5000l
-        );
 
         info.setState(NodeState.CONNECTING);
         return;
@@ -375,20 +298,12 @@ final class ClusterLevelEventHandler {
 
     private void handleDataEvent(ClusterLevelEvent event){
         //todo handle it please !
-        if(objectLock.acquire(event.channel())) {
-            try {
-                if(parseAndHandleData(event))
-                {
-                    objectLock.releaseAndRemove(event.channel());
-                }
-            } catch (Throwable e) {
-                logger.error(e);
-                event.channel().closeNow();
-                objectLock.releaseAndRemove(event.channel());
-                return;
-            }
-        }else {
-            logger.warning("THI SHIT MAN");
+        try {
+            parseAndHandleData(event);
+        } catch (Throwable e) {
+            logger.error(e);
+            event.channel().closeNow();
+            return;
         }
 
 
@@ -415,13 +330,13 @@ final class ClusterLevelEventHandler {
             }
 
 
-            if(isCurrentNodeLeader())
+            if(node.info().isLeader())
             {
                 if(!validateJoinRequest(joinRequest))
                 {
                     event.channel().closeNow();
                     return true;
-                    
+
                 }
                 //todo handleBy password
 
@@ -488,7 +403,7 @@ final class ClusterLevelEventHandler {
 
                 event.channel().send(
                         CLSTR_MSG_SRLIZR
-                        .serialize(new ConnectResponse().setSuccess(false)) ,
+                                .serialize(new ConnectResponse().setSuccess(false)) ,
                         MAXIMUM_PRIORITY
                 );
 
@@ -551,114 +466,30 @@ final class ClusterLevelEventHandler {
         return false;
     }
 
-    //-------------------------------------- cluster level events ----------------------------------
-
-
-    private void whenAnnounceDone(ClusterStateTracker.DistributeAnnounce announce ,
-                                  ClusterStateTracker tracker)
+    private boolean validateJoinRequest(JoinRequest request)
     {
-        try {
-            if (announce.type().is(ClusterStateTracker.DistributeAnnounce.Type.CONNECT)) {
-                if (announce.totalPossibleAnnouncers() != announce.announces().size()) {
-                    ConnectResponse response = new ConnectResponse().setSuccess(false);
-                    announce.channel().send(
-                            CLSTR_MSG_SRLIZR
-                                    .serialize(response),
-                            MAXIMUM_PRIORITY
-                    );
-                    announce.channel().flushAndClose();
-                } else {
-
-                    ConnectResponse response = new ConnectResponse().setSuccess(true);
-
-                    for (NodeInfo i : announce.announces().keySet()) {
-                        ConnectAnnounce connectAnnounce = (ConnectAnnounce)
-                                announce.announces().get(i);
-                        node.hashCalculator().addHash(i.id(),
-                                connectAnnounce.hashId());
-
-                        if(i == node.info())
-                        {
-                            response.setHashId(connectAnnounce.hashId());
-                            StandardNodeInfo info = (StandardNodeInfo) node.info();
-                            response.setInfo(info.toSerializableInfo());
-                        }
-                    }
-
-                    String hashId = node.hashCalculator().calculateHash();
-                    node.hashCalculator().refresh();
-                    StandardNodeInfo info = announce.channel().attachment();
-                    info.setHashId(hashId);
-
-                    announce.channel().send(
-                            CLSTR_MSG_SRLIZR
-                            .serialize(response) ,
-                            MAXIMUM_PRIORITY
-                    );
-
-                    info.setState(NodeState.CONNECTED);
-
-                }
-            } else {
-
-                int numberOfSuccesses = announce.announces().size();
-                if(announce.totalPossibleAnnouncers()==1){
-                    if(isCurrentNodeLeader())
-                    {
-                        logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
-                        StandardNodeInfo nodeInfo  = node.nodesList().fastFindById(
-                                announce.relatedNode()
-                                .id()
-                        );
-                        nodeInfo.setState(NodeState.CLUSTER_DISCONNECTED);
-                        node.nodesList().removeNode(nodeInfo);
-                    }else {
-                        node.dispose();
-                        return;
-                    }
-                }
-                else if(numberOfSuccesses >= announce.totalPossibleAnnouncers()/2+1) {
-                    logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
-
-
-                    StandardNodeInfo nodeInfo  = node.nodesList().fastFindById(
-                            announce.relatedNode()
-                                    .id()
-                    );
-                    nodeInfo.setState(NodeState.CLUSTER_DISCONNECTED);
-                    node.nodesList().removeNode(nodeInfo);
-
-
-                    if(announce.relatedNode().isLeader())
-                    {
-                        node.nodesList().setNextLeader();
-                    }
-
-
-                }
-                else {
-                    node.dispose();
-                    return;
-                }
-
-
-
-            }
-
-
-            if(!stateTracker.hasRemainingAnnounces())
-                cluster.setState(ClusterState.SYNCHRONIZED);
-
-        }catch (Throwable e)
-        {
-            logger.error(e);
-            if(announce.channel()!=null)
-                announce.channel().closeNow();
+        if(request.password()==null || request.password().isEmpty()){
+            logger.warning("a join request with empty password detected");
+            return false;
         }
+
+        if(cluster.state().isNot(ClusterState.SYNCHRONIZED))
+        {
+            logger.warning("a join request received but rejected cause cluster state is {}" , cluster.state());
+            return false;
+        }
+
+        for(StandardNodeInfo nodeInfo:node.nodesList().immutableList())
+        {
+            if(nodeInfo.address().address().equals(request.nodeAddress())) {
+                logger.warning("a join request with exists address detected , address : {}" ,request.nodeAddress());
+                return false;
+            }
+        }
+
+        return true;
+
     }
-
-    //=====================================================================================
-
 
     private boolean validateConnectRequest(ConnectRequest request)
     {
@@ -687,91 +518,44 @@ final class ClusterLevelEventHandler {
     }
 
 
-    private boolean connected()
+    private void checkStateTracker()
     {
-        return node.info()!=null &&
-                node.info().state().is(NodeState.CONNECTED);
-    }
-
-
-    private boolean isCurrentNodeLeader()
-    {
-        return node.info().isLeader();
-    }
-
-
-
-
-
-
-
-
-
-    final void stop()
-    {
-        synchronized (_sync) {
-            stop = true;
-        }
-    }
-
-
-    void handleLeave() throws Throwable
-    {
-
-        final SynchronizerListener<Answer<Object>> leaveAnswer = new SynchronizerListener<>();
-        synchronized (this) {
-            if (leaving) throw new IllegalStateException("already leaving");
-
-            leaving = true;
-
-            StandardNodeInfo nodeInfo = (StandardNodeInfo) node.info();
-
-            nodeInfo.setState(NodeState.LEAVING);
-
-
-            maximumPriorityMessageService.sendMessage(LeaveAnnounce.LEAVE_ANNOUNCE , 0 ,
-                    AsynchronousResultListener.EMPTY);
-
-
-            minimumPriorityMessageService.askQuestion(LeaveQuestion.LEAVE_QUESTION
-                    , MessageService.DefaultArguments.ALL_RESPONSES , leaveAnswer);
-        }
-
-
-        Answer<Object> answer = leaveAnswer.syncUninterruptible();
-        logger.information("leave question result :\r\n {}" , answer);
-
-        node.dispose();
-
-    }
-
-    private boolean validateJoinRequest(JoinRequest request)
-    {
-        if(request.password()==null || request.password().isEmpty()){
-            logger.warning("a join request with empty password detected");
-            return false;
-        }
-
-        if(cluster.state().isNot(ClusterState.SYNCHRONIZED))
-        {
-            logger.warning("a join request received but rejected cause cluster state is {}" , cluster.state());
-            return false;
-        }
-
-        for(StandardNodeInfo nodeInfo:node.nodesList().immutableList())
-        {
-            if(nodeInfo.address().address().equals(request.nodeAddress())) {
-                logger.warning("a join request with exists address detected , address : {}" ,request.nodeAddress());
-                return false;
-            }
-        }
-
-        return true;
 
     }
 
     @Override
-    public String toString() {
-        return "ClusterLevelEventHandler";
+    protected void init() {
+    }
+
+    @Override
+    protected void onDataAvailable(Object data) {
+        if(data instanceof Question)
+        {
+            handleQuestion((Question)data);
+        }else if(data instanceof Message)
+        {
+            handleMessage((Message)data);
+        }else if(data instanceof ClusterLevelEvent)
+        {
+            handleClusterLevelEvent((ClusterLevelEvent)data);
+        }
+
+        checkStateTracker();
+    }
+
+
+    @Override
+    protected void onWakeup() {
+        checkStateTracker();
+    }
+
+    @Override
+    protected void onException(Throwable e) {
+
+    }
+
+    @Override
+    protected void onStop() {
+
     }
 }
