@@ -1,6 +1,8 @@
 package shepherd.standard.cluster.node;
 
 
+import shepherd.api.cluster.Cluster;
+import shepherd.api.cluster.node.Node;
 import shepherd.standard.cluster.node.clusterlevelmessage.*;
 import shepherd.standard.datachannel.IoChannel;
 import shepherd.api.cluster.ClusterState;
@@ -37,17 +39,21 @@ class ClusterStateTracker {
         private final int totalPossibleAnnouncers;
         private final Type type;
         private IoChannel channel;
-        private boolean timedOut;
         private final SerializableNodeInfo relatedNode;
+        private final long startTime;
+        private long lastActivityTime;
+        private final Cluster cluster;
 
-
-        private DistributeAnnounce(Set<NodeInfo> allPossibleAnnouncers, Type type, SerializableNodeInfo relatedNode) {
+        private DistributeAnnounce(Set<NodeInfo> allPossibleAnnouncers, Type type, SerializableNodeInfo relatedNode , Cluster c) {
             this.allPossibleAnnouncers = allPossibleAnnouncers;
             this.relatedNode = relatedNode;
             this.totalPossibleAnnouncers = this.allPossibleAnnouncers.size();
             this.type = type;
             this.successAnnouncers = new ConcurrentHashMap<>();
             this.failedAnnouncers = Collections.newSetFromMap(new ConcurrentHashMap<>());
+            this.cluster = c;
+            startTime = cluster.clusterTime();
+            lastActivityTime = startTime;
         }
 
 
@@ -67,6 +73,8 @@ class ClusterStateTracker {
 
             successAnnouncers.put(info , announce);
 
+            lastActivityTime = cluster.clusterTime();
+
             return allPossibleAnnouncers.isEmpty();
         }
 
@@ -78,6 +86,31 @@ class ClusterStateTracker {
             }
 
             return allPossibleAnnouncers.isEmpty();
+        }
+
+        /**
+         *
+         * @param info the information that must removed from announce
+         * @return -1 if can remove whole announce , 0 if nothing and 1 if ready to response
+         */
+        private int remove(NodeInfo info)
+        {
+
+            boolean b = failedAnnouncers.remove(info)
+                ||successAnnouncers.remove(info)!=null
+                    ||allPossibleAnnouncers.remove(info);
+
+            if(!b)return 0;
+
+            lastActivityTime = cluster.clusterTime();
+
+            if(successAnnouncers.size()
+                    +failedAnnouncers.size()<=0)
+            {
+                return -1;
+            }
+
+            return allPossibleAnnouncers.size()==0?1:0;
         }
 
         public Set<NodeInfo> failedAnnouncers() {
@@ -104,27 +137,18 @@ class ClusterStateTracker {
             return relatedNode;
         }
 
-        public boolean isTimedOut() {
-            return timedOut;
-        }
-
-        private void setTimedOut(boolean timedOut) {
-            this.timedOut = timedOut;
-        }
     }
 
 
 
     private final Map<SerializableNodeInfo , DistributeAnnounce> disconnectAnnounces;
     private final Map<SerializableNodeInfo , DistributeAnnounce> connectAnnounces;
-    private BiConsumer<DistributeAnnounce , ClusterStateTracker> onAnnounceDone;
     private final StandardNode node;
-    private final StandardCluster cluster;
 
     private final Function<SerializableNodeInfo , DistributeAnnounce> connectCreator = new Function<SerializableNodeInfo, DistributeAnnounce>() {
         @Override
         public DistributeAnnounce apply(SerializableNodeInfo info) {
-            return new DistributeAnnounce(captureNodes(info) , DistributeAnnounce.Type.CONNECT, info);
+            return new DistributeAnnounce(captureNodes(info) , DistributeAnnounce.Type.CONNECT, info, node.cluster());
         }
     };
 
@@ -132,7 +156,7 @@ class ClusterStateTracker {
     private final Function<SerializableNodeInfo , DistributeAnnounce> disconnectCreator = new Function<SerializableNodeInfo, DistributeAnnounce>() {
         @Override
         public DistributeAnnounce apply(SerializableNodeInfo info) {
-            return new DistributeAnnounce(captureNodes(info) , DistributeAnnounce.Type.DISCONNECT, info);
+            return new DistributeAnnounce(captureNodes(info) , DistributeAnnounce.Type.DISCONNECT, info ,node.cluster());
         }
     };
 
@@ -140,7 +164,6 @@ class ClusterStateTracker {
         this.disconnectAnnounces = new ConcurrentHashMap<>();
         this.connectAnnounces = new ConcurrentHashMap<>();
         this.node = node;
-        this.cluster = (StandardCluster) node.cluster();
     }
 
 
@@ -171,12 +194,8 @@ class ClusterStateTracker {
     }
 
 
-    public void setOnAnnounceDone(BiConsumer<DistributeAnnounce , ClusterStateTracker> onAnnounceDone) {
-        ifNull("listener is null" , onAnnounceDone);
-        this.onAnnounceDone = onAnnounceDone;
-    }
 
-    public final void announceConnect(Message<ConnectAnnounce> message)
+    public final DistributeAnnounce announceConnect(Message<ConnectAnnounce> message)
     {
         ConnectAnnounce connectAnnounce = message.data();
         DistributeAnnounce distributeAnnounce = getOrCreateConnectAnnounce(
@@ -185,14 +204,15 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(message.metadata().sender() , connectAnnounce))
         {
-            connectAnnounces.remove(connectAnnounce.connectedNode());
-            handleAnnounce(distributeAnnounce);
+            return connectAnnounces.remove(connectAnnounce.connectedNode());
         }
+
+        return null;
 
     }
 
 
-    public final void announceDisconnect(Message<DisconnectAnnounce> message)
+    public final DistributeAnnounce announceDisconnect(Message<DisconnectAnnounce> message)
     {
         DisconnectAnnounce disconnectAnnounce = message.data();
         DistributeAnnounce distributeAnnounce = getOrCreateDisconnectAnnounce(
@@ -201,13 +221,15 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(message.metadata().sender() , disconnectAnnounce))
         {
-            disconnectAnnounces.remove(disconnectAnnounce.disconnectedNode());
-            handleAnnounce(distributeAnnounce);
+            return disconnectAnnounces.remove(disconnectAnnounce.disconnectedNode());
+
         }
+
+        return null;
     }
 
 
-    public final void localDisconnectAnnounce(SerializableNodeInfo disconnected, boolean left)
+    public final DistributeAnnounce localDisconnectAnnounce(SerializableNodeInfo disconnected, boolean left)
     {
 
         DistributeAnnounce distributeAnnounce = getOrCreateDisconnectAnnounce(
@@ -216,12 +238,13 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(node.info() , new DisconnectAnnounce(disconnected, left)))
         {
-            disconnectAnnounces.remove(disconnected);
-            handleAnnounce(distributeAnnounce);
+            return disconnectAnnounces.remove(disconnected);
         }
+
+        return null;
     }
 
-    public final void localConnectAnnounce(IoChannel channel , ConnectAnnounce announce)
+    public final DistributeAnnounce localConnectAnnounce(IoChannel channel , ConnectAnnounce announce)
     {
         DistributeAnnounce distributeAnnounce = getOrCreateConnectAnnounce(
                 announce.connectedNode()
@@ -229,21 +252,90 @@ class ClusterStateTracker {
 
         if(distributeAnnounce.announce(node.info() , announce))
         {
-            connectAnnounces.remove(announce.connectedNode());
-            handleAnnounce(distributeAnnounce);
+            return connectAnnounces.remove(announce.connectedNode());
         }
+
+        return null;
     }
 
-
-    private final void handleAnnounce(DistributeAnnounce announce)
+    public final List<DistributeAnnounce> failDisconnectAnnounces(NodeInfo info)
     {
-        onAnnounceDone.accept(announce , this);
-
-        if(disconnectAnnounces.isEmpty() && connectAnnounces.isEmpty())
+        List<DistributeAnnounce> doneAnnounces = new ArrayList<>();
+        for(DistributeAnnounce announce:disconnectAnnounces.values())
         {
-            //so handle it please !!!!!!!!!!!!!!
-            cluster.setState(ClusterState.SYNCHRONIZED);
+            if(announce.fail(info))
+            {
+                doneAnnounces.add(announce);
+            }
         }
+
+        for(DistributeAnnounce announce:doneAnnounces)
+        {
+            disconnectAnnounces.remove(announce.relatedNode);
+        }
+
+        return doneAnnounces;
+    }
+
+    public final List<DistributeAnnounce> failConnectAnnounces(NodeInfo info)
+    {
+        List<DistributeAnnounce> doneAnnounces = new ArrayList<>();
+        for(DistributeAnnounce announce:connectAnnounces.values())
+        {
+            if(announce.fail(info))
+            {
+                doneAnnounces.add(announce);
+            }
+        }
+
+        for(DistributeAnnounce announce:doneAnnounces)
+        {
+            connectAnnounces.remove(announce.relatedNode);
+        }
+
+        return doneAnnounces;
+    }
+
+    public final List<DistributeAnnounce> removeFromDisconnectAnnounces(NodeInfo info)
+    {
+        List<DistributeAnnounce> done = new ArrayList<>();
+        List<DistributeAnnounce> remove = new ArrayList<>();
+        for(DistributeAnnounce announce:disconnectAnnounces.values())
+        {
+            int code = announce.remove(info);
+
+            if(code==0) continue;
+
+            remove.add(announce);
+
+            if(code>0) done.add(announce);
+        }
+
+        for(DistributeAnnounce announce:remove)
+        {
+            disconnectAnnounces.remove(announce);
+        }
+
+        return done;
+    }
+
+    public final List<DistributeAnnounce> timeOutAnnounces(long l)
+    {
+        List<DistributeAnnounce> announces = new ArrayList<>();
+
+        for(DistributeAnnounce announce:disconnectAnnounces.values())
+        {
+            if(node.cluster().clusterTime()-announce.startTime>=l)
+                announces.add(announce);
+        }
+
+        for(DistributeAnnounce announce:connectAnnounces.values())
+        {
+            if(node.cluster().clusterTime()-announce.startTime>=l)
+                announces.add(announce);
+        }
+
+        return announces;
     }
 
 

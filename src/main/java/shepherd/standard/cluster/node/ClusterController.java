@@ -2,6 +2,7 @@ package shepherd.standard.cluster.node;
 
 import shepherd.api.asynchronous.AsynchronousResultListener;
 import shepherd.api.cluster.ClusterState;
+import shepherd.api.cluster.node.NodeInfo;
 import shepherd.api.cluster.node.NodeState;
 import shepherd.api.config.ConfigurationKey;
 import shepherd.api.logger.Logger;
@@ -17,6 +18,7 @@ import shepherd.standard.utils.TimerThread;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 import static shepherd.standard.cluster.node.ClusterProtocolConstants.CLSTR_MSG_SRLIZR;
@@ -116,9 +118,7 @@ public class ClusterController extends TimerThread {
     };
 
     private boolean leaving = false;
-    private boolean stop = false;
     private ClusterConnectToken connectToken;
-    private final Object _sync = new Object();
 
     private final Logger logger;
 
@@ -153,6 +153,11 @@ public class ClusterController extends TimerThread {
         //stateTracker.setOnAnnounceDone();
 
         logger = LoggerFactory.factory().getLogger(this);
+
+    }
+
+    void handleLeave()
+    {
 
     }
 
@@ -213,12 +218,12 @@ public class ClusterController extends TimerThread {
             info.setState(NodeState.LEAVING);
         }else if(message.data() instanceof DisconnectAnnounce)
         {
-            stateTracker.announceDisconnect(message);
+            handleAnnounce(stateTracker.announceDisconnect(message));
             cluster.setState(ClusterState.SYNCHRONIZING);
 
         }else if(message.data() instanceof ConnectAnnounce)
         {
-            stateTracker.announceConnect(message);
+            handleAnnounce(stateTracker.announceConnect(message));
             cluster.setState(ClusterState.SYNCHRONIZING);
 
         }else{
@@ -226,23 +231,18 @@ public class ClusterController extends TimerThread {
         }
     }
 
-    public void handleClusterLevelEvent(ClusterLevelEvent event)
+    private void handleClusterLevelEvent(ClusterLevelEvent event)
     {
-        synchronized (_sync) {
+        try {
 
-            if(stop)return;
-
-            try {
-
-                if(event.is(ClusterLevelEvent.Type.DISCONNECT))
-                    handleDisconnectEvent(event);
-                else if(event.is(ClusterLevelEvent.Type.CONNECT))
-                    handleConnectEvent(event);
-                else if(event.is(ClusterLevelEvent.Type.DATA_RECEIVED))
-                    handleDataEvent(event);
-            } catch (Throwable e) {
-                logger.warning(e);
-            }
+            if(event.is(ClusterLevelEvent.Type.DISCONNECT))
+                handleDisconnectEvent(event);
+            else if(event.is(ClusterLevelEvent.Type.CONNECT))
+                handleConnectEvent(event);
+            else if(event.is(ClusterLevelEvent.Type.DATA_RECEIVED))
+                handleDataEvent(event);
+        } catch (Throwable e) {
+            logger.warning(e);
         }
     }
 
@@ -292,7 +292,13 @@ public class ClusterController extends TimerThread {
                         MessageService.DefaultArguments.NO_ACKNOWLEDGE,
                         AsynchronousResultListener.EMPTY);
 
-        stateTracker.localDisconnectAnnounce(info.toSerializableInfo() , left);
+
+        cluster.setState(ClusterState.SYNCHRONIZING);
+        handleAnnounces(
+                stateTracker.failConnectAnnounces(info)
+        );
+
+        handleAnnounce(stateTracker.localDisconnectAnnounce(info.toSerializableInfo() , left));
     }
 
 
@@ -336,7 +342,6 @@ public class ClusterController extends TimerThread {
                 {
                     event.channel().closeNow();
                     return true;
-
                 }
                 //todo handleBy password
 
@@ -425,10 +430,11 @@ public class ClusterController extends TimerThread {
                     MessageService.DefaultArguments.NO_ACKNOWLEDGE ,
                     AsynchronousResultListener.EMPTY
             );
+            cluster.setState(ClusterState.SYNCHRONIZING);
 
-            stateTracker.localConnectAnnounce(
+            handleAnnounce(stateTracker.localConnectAnnounce(
                     event.channel() ,
-                    announce);
+                    announce));
 
         }else if(data instanceof ReadyAnnounce)
         {
@@ -517,10 +523,160 @@ public class ClusterController extends TimerThread {
         return false;
     }
 
+    private boolean doHandleAnnounce(ClusterStateTracker.DistributeAnnounce announce)
+    {
+        try {
+            if (announce.type().is(ClusterStateTracker.DistributeAnnounce.Type.CONNECT)) {
+                if (announce.totalPossibleAnnouncers() != announce.announces().size()) {
+                    ConnectResponse response = new ConnectResponse().setSuccess(false);
+                    announce.channel().send(
+                            CLSTR_MSG_SRLIZR
+                                    .serialize(response),
+                            MAXIMUM_PRIORITY
+                    );
+                    announce.channel().flushAndClose();
+                } else {
+
+                    ConnectResponse response = new ConnectResponse().setSuccess(true);
+
+                    for (NodeInfo i : announce.announces().keySet()) {
+                        ConnectAnnounce connectAnnounce = (ConnectAnnounce)
+                                announce.announces().get(i);
+                        node.hashCalculator().addHash(i.id(),
+                                connectAnnounce.hashId());
+
+                        if(i == node.info())
+                        {
+                            response.setHashId(connectAnnounce.hashId());
+                            StandardNodeInfo info = (StandardNodeInfo) node.info();
+                            response.setInfo(info.toSerializableInfo());
+                        }
+                    }
+
+                    String hashId = node.hashCalculator().calculateHash();
+                    node.hashCalculator().refresh();
+                    StandardNodeInfo info = announce.channel().attachment();
+                    info.setHashId(hashId);
+
+                    announce.channel().send(
+                            CLSTR_MSG_SRLIZR
+                                    .serialize(response) ,
+                            MAXIMUM_PRIORITY
+                    );
+
+                    info.setState(NodeState.CONNECTED);
+
+                }
+
+                return true;
+            } else {
+
+                int numberOfSuccesses = announce.announces().size();
+                if(announce.totalPossibleAnnouncers()==1){
+                    if(node.info().isLeader())
+                    {
+                        logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
+                        StandardNodeInfo nodeInfo  = node.nodesList().fastFindById(
+                                announce.relatedNode()
+                                        .id()
+                        );
+                        nodeInfo.setState(NodeState.CLUSTER_DISCONNECTED);
+                        node.nodesList().removeNode(nodeInfo);
+                        if(!handleAnnounces(stateTracker.removeFromDisconnectAnnounces(
+                                nodeInfo
+                        )))return false;
+                    }else {
+                        return false;
+                    }
+                }
+                else if(numberOfSuccesses >= announce.totalPossibleAnnouncers()/2+1) {
+                    logger.information("election done , node [id:{},hash-id:{}]  disconnected !" , announce.relatedNode().id() , announce.relatedNode().hashId());
+
+
+                    StandardNodeInfo nodeInfo  = node.nodesList().fastFindById(
+                            announce.relatedNode()
+                                    .id()
+                    );
+
+                    nodeInfo.setState(NodeState.CLUSTER_DISCONNECTED);
+                    node.nodesList().removeNode(nodeInfo);
+
+                    if(!handleAnnounces(stateTracker.removeFromDisconnectAnnounces(
+                            nodeInfo
+                    )))return false;
+
+                    if(announce.relatedNode().isLeader())
+                    {
+                        node.nodesList().setNextLeader();
+                    }
+
+
+                }
+                else {
+                    return false;
+                }
+
+                return true;
+
+            }
+
+
+        }catch (Throwable e)
+        {
+            logger.error(e);
+            return false;
+        }
+    }
+    private boolean handleAnnounce(ClusterStateTracker.DistributeAnnounce announce)
+    {
+        if(announce==null)
+            return true;
+
+        if(!doHandleAnnounce(announce)) {
+            node.dispose();
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean handleAnnounces(List<ClusterStateTracker.DistributeAnnounce> announces)
+    {
+        if(announces==null || announces.size()<=0)return true;
+
+        for(ClusterStateTracker.DistributeAnnounce announce:announces)
+        {
+            if(!doHandleAnnounce(announce))
+            {
+                node.dispose();
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private void checkStateTracker()
     {
+        List<ClusterStateTracker.DistributeAnnounce> timeOuts =
+                stateTracker.timeOutAnnounces(5000);
 
+        for(ClusterStateTracker.DistributeAnnounce announce:timeOuts)
+        {
+            if(!announce.type().is(ClusterStateTracker.DistributeAnnounce.
+                    Type.DISCONNECT))continue;
+
+            if(announce.announces().containsKey(node.info()))
+            {
+                node.dispose();
+                return;
+            }
+        }
+
+        if(!stateTracker.hasRemainingAnnounces())
+        {
+            cluster.setState(ClusterState.SYNCHRONIZED);
+        }
     }
 
     @Override
@@ -551,11 +707,11 @@ public class ClusterController extends TimerThread {
 
     @Override
     protected void onException(Throwable e) {
-
+        logger.exception(e);
     }
 
     @Override
     protected void onStop() {
-
+        logger.information("controller stopped");
     }
 }

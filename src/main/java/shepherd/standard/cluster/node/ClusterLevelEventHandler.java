@@ -159,6 +159,7 @@ final class ClusterLevelEventHandler {
 
 
 
+    @Deprecated
     ClusterLevelEventHandler(StandardNode node)
     {
         this.node = node;
@@ -180,7 +181,7 @@ final class ClusterLevelEventHandler {
 
         stateTracker = new ClusterStateTracker(this.node);
         cluster = (StandardCluster) node.cluster();
-        stateTracker.setOnAnnounceDone(this::whenAnnounceDone);
+        //stateTracker.setOnAnnounceDone(this::whenAnnounceDone);
 
         objectLock = new ObjectLock();
 

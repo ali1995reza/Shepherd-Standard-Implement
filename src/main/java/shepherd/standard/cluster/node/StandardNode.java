@@ -339,12 +339,12 @@ public class StandardNode implements Node<SocketAddress> {
     private final IoChannelEventListener ioChannelEventListener = new IoChannelEventListener() {
         @Override
         public void onChannelDisconnected(IoChannel ioChannel) {
-            clusterLevelEventHandler.handleClusterLevelEvent(ClusterLevelEvent.disconnectEvent(ioChannel));
+            clusterController.put(ClusterLevelEvent.disconnectEvent(ioChannel));
         }
 
         @Override
         public void onNewChannelConnected(IoChannel ioChannel) {
-            clusterLevelEventHandler.handleClusterLevelEvent(ClusterLevelEvent.connectEvent(ioChannel));
+            clusterController.put(ClusterLevelEvent.connectEvent(ioChannel));
         }
 
 
@@ -384,7 +384,7 @@ public class StandardNode implements Node<SocketAddress> {
     };
 
 
-    private ClusterLevelEventHandler clusterLevelEventHandler;
+    private ClusterController clusterController;
     private IoChannelCenter ioChannelCenter;
     private StandardNodeInfo currentNodeInfo;
     private StandardCluster cluster;
@@ -576,7 +576,7 @@ public class StandardNode implements Node<SocketAddress> {
                 ()->{leaving = true;}
         );
 
-        clusterLevelEventHandler.handleLeave();
+        clusterController.handleLeave();
 
         dispose();
 
@@ -660,8 +660,8 @@ public class StandardNode implements Node<SocketAddress> {
     {
         if (ioChannelCenter != null)
             runSafe(ioChannelCenter::stop , "IoChannelCenter::stop()");
-        if (clusterLevelEventHandler != null)
-            runSafe(clusterLevelEventHandler::stop , "ClusterLevelEventHandler::stop()");
+        if (clusterController != null)
+            runSafe(clusterController::stop , "ClusterController::stop()");
         if (sharedTimer != null)
             runSafe(sharedTimer::cancel , "Timer::cancel()");
 
@@ -701,10 +701,11 @@ public class StandardNode implements Node<SocketAddress> {
 
     private void runClusterEventHandler()
     {
-        if(clusterLevelEventHandler ==null)
+        if(clusterController ==null)
         {
             logger.information("Running ClusterLevel-Event-Handler");
-            clusterLevelEventHandler = new ClusterLevelEventHandler(this);
+            clusterController = new ClusterController(this);
+            clusterController.start();
         }
     }
 
@@ -817,7 +818,7 @@ public class StandardNode implements Node<SocketAddress> {
 
         }
         else if(messageType== MessageTypes.CLUSTER_MESSAGE) {
-            clusterLevelEventHandler.handleClusterLevelEvent(ClusterLevelEvent.dataEvent(ioChannel, new ByteBufferArray(data)));
+            clusterController.put(ClusterLevelEvent.dataEvent(ioChannel, new ByteBufferArray(data)));
         }
         else if(messageType == MessageTypes.ACKNOWLEDGE) {
             StandardNodeInfo info = ioChannel.attachment();
