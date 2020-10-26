@@ -151,7 +151,7 @@ final class ClusterLevelEventHandler {
 
     private final Logger logger;
 
-    private final ClusterStateTracker stateTracker;
+    private final AnnouncesStateTracker stateTracker;
 
     private final StandardCluster cluster;
 
@@ -179,7 +179,7 @@ final class ClusterLevelEventHandler {
                 messageListener ,
                 conf);
 
-        stateTracker = new ClusterStateTracker(this.node);
+        stateTracker = new AnnouncesStateTracker(this.node);
         cluster = (StandardCluster) node.cluster();
         //stateTracker.setOnAnnounceDone(this::whenAnnounceDone);
 
@@ -555,11 +555,11 @@ final class ClusterLevelEventHandler {
     //-------------------------------------- cluster level events ----------------------------------
 
 
-    private void whenAnnounceDone(ClusterStateTracker.DistributeAnnounce announce ,
-                                  ClusterStateTracker tracker)
+    private void whenAnnounceDone(AnnouncesStateTracker.DistributeAnnounce announce ,
+                                  AnnouncesStateTracker tracker)
     {
         try {
-            if (announce.type().is(ClusterStateTracker.DistributeAnnounce.Type.CONNECT)) {
+            if (announce.type().is(AnnouncesStateTracker.DistributeAnnounce.Type.CONNECT)) {
                 if (announce.totalPossibleAnnouncers() != announce.announces().size()) {
                     ConnectResponse response = new ConnectResponse().setSuccess(false);
                     announce.channel().send(

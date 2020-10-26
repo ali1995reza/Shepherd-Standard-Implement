@@ -122,7 +122,7 @@ public class ClusterController extends TimerThread {
 
     private final Logger logger;
 
-    private final ClusterStateTracker stateTracker;
+    private final AnnouncesStateTracker stateTracker;
 
     private final StandardCluster cluster;
 
@@ -148,7 +148,7 @@ public class ClusterController extends TimerThread {
                 messageListener ,
                 conf);
 
-        stateTracker = new ClusterStateTracker(this.node);
+        stateTracker = new AnnouncesStateTracker(this.node);
         cluster = (StandardCluster) node.cluster();
         //stateTracker.setOnAnnounceDone();
 
@@ -523,10 +523,10 @@ public class ClusterController extends TimerThread {
         return false;
     }
 
-    private boolean doHandleAnnounce(ClusterStateTracker.DistributeAnnounce announce)
+    private boolean doHandleAnnounce(AnnouncesStateTracker.DistributeAnnounce announce)
     {
         try {
-            if (announce.type().is(ClusterStateTracker.DistributeAnnounce.Type.CONNECT)) {
+            if (announce.type().is(AnnouncesStateTracker.DistributeAnnounce.Type.CONNECT)) {
                 if (announce.totalPossibleAnnouncers() != announce.announces().size()) {
                     ConnectResponse response = new ConnectResponse().setSuccess(false);
                     announce.channel().send(
@@ -627,7 +627,7 @@ public class ClusterController extends TimerThread {
             return false;
         }
     }
-    private boolean handleAnnounce(ClusterStateTracker.DistributeAnnounce announce)
+    private boolean handleAnnounce(AnnouncesStateTracker.DistributeAnnounce announce)
     {
         if(announce==null)
             return true;
@@ -640,11 +640,11 @@ public class ClusterController extends TimerThread {
         return true;
     }
 
-    private boolean handleAnnounces(List<ClusterStateTracker.DistributeAnnounce> announces)
+    private boolean handleAnnounces(List<AnnouncesStateTracker.DistributeAnnounce> announces)
     {
         if(announces==null || announces.size()<=0)return true;
 
-        for(ClusterStateTracker.DistributeAnnounce announce:announces)
+        for(AnnouncesStateTracker.DistributeAnnounce announce:announces)
         {
             if(!doHandleAnnounce(announce))
             {
@@ -658,12 +658,12 @@ public class ClusterController extends TimerThread {
 
     private void checkStateTracker()
     {
-        List<ClusterStateTracker.DistributeAnnounce> timeOuts =
+        List<AnnouncesStateTracker.DistributeAnnounce> timeOuts =
                 stateTracker.timeOutAnnounces(5000);
 
-        for(ClusterStateTracker.DistributeAnnounce announce:timeOuts)
+        for(AnnouncesStateTracker.DistributeAnnounce announce:timeOuts)
         {
-            if(!announce.type().is(ClusterStateTracker.DistributeAnnounce.
+            if(!announce.type().is(AnnouncesStateTracker.DistributeAnnounce.
                     Type.DISCONNECT))continue;
 
             if(announce.announces().containsKey(node.info()))

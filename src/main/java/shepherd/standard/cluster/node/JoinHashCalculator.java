@@ -10,7 +10,7 @@ import java.util.*;
 
 import static shepherd.standard.assertion.Assertion.*;
 
-public class JoinHashCalculator {
+final class JoinHashCalculator {
 
     private final static Comparator<Integer> SORTER = new Comparator<Integer>() {
         @Override
@@ -56,7 +56,6 @@ public class JoinHashCalculator {
     {
         synchronized (hashes)
         {
-            StringBuffer sum = new StringBuffer();
             List<Integer> keys = new ArrayList<>();
             for(int i:hashes.keySet())
             {

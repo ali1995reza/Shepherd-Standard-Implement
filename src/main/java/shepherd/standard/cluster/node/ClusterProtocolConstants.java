@@ -27,38 +27,6 @@ final class ClusterProtocolConstants {
 
 
 
-    public final static class ClusterMessageTypes
-    {
-        public final static byte CLUSTER_INFORMATION = 1;
-        public final static byte LEADER_ADDRESS = 2;
-        public final static byte AUTH_TOKEN = 3;
-        public final static byte JOIN_REQUEST = 4;
-        public final static byte AUTH_FAILED = 5;
-        public final static byte READY = 6;
-        public final static byte PRESENTATION = 7;
-        public final static byte SET_CONFIGURATION = 8;
-        public final static byte LEAVING = 9;
-        public final static byte YOUR_LEAVE_FLAG_SET = 10;
-    }
-
-    public final static class ClusterMessageKeys
-    {
-        public final static String TYPE = "T";
-        public final static String NODES_INFORMATION = "NI";
-            public final static String IP = "I";
-            public final static String PORT = "P";
-            public final static String ID = "ID";
-            public final static String LEADER = "L";
-            public final static String JOIN_TIME = "JT";
-            public final static String YOUR_INFORMATION  = "YI";
-        public final static String AUTH_TOKEN = "AT";
-        public final static String PASSWORD = "PSWRD";
-
-    }
-
-
-
-
     private static final Base64.Encoder encoder = Base64.getEncoder();
 
     static JoinResponse createSuccessJoinResponse(StandardNodeInfo requestInfo , Collection<NodeInfo> infos , String token) throws IOException {

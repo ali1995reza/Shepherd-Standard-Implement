@@ -17,7 +17,7 @@ import java.util.function.Function;
 
 import static shepherd.standard.assertion.Assertion.*;
 
-class ClusterStateTracker {
+class AnnouncesStateTracker {
 
 
 
@@ -160,7 +160,7 @@ class ClusterStateTracker {
         }
     };
 
-    ClusterStateTracker(StandardNode node) {
+    AnnouncesStateTracker(StandardNode node) {
         this.disconnectAnnounces = new ConcurrentHashMap<>();
         this.connectAnnounces = new ConcurrentHashMap<>();
         this.node = node;
