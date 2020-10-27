@@ -1,6 +1,7 @@
 package shepherd.runtime;
 
 import shepherd.api.asynchronous.AsynchronousResultListener;
+import shepherd.api.cluster.node.Node;
 import shepherd.api.config.ConfigurationKey;
 import shepherd.api.logger.LoggerFactory;
 import shepherd.api.message.Message;
@@ -162,14 +163,11 @@ public class NodeTest {
         list.add(node);
 
 
-        /*for(int i=0;i<0;i++) {
+        for(int i=0;i<5;i++) {
 
-            Node node1 = joinCluster(3031+i , 3030);
-            service = node1.messageServiceManager().registerService(10 ,new BL());
-            service.synchronizedClusterEvent();
+            Node node1 = joinCluster(Helper.pickAFreePort(), 3030);
             list.add(node1);
-            list.add(service);
-        }*/
+        }
 
         System.out.println(list.size());
 

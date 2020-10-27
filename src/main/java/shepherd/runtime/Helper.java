@@ -193,7 +193,7 @@ public class Helper {
 
     }
 
-    private static int pickAFreePort()
+    public static int pickAFreePort()
     {
         return pickAFreePort(2000, 65535);
     }

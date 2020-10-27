@@ -10,7 +10,7 @@ import java.util.*;
 
 import static shepherd.standard.assertion.Assertion.*;
 
-final class JoinHashCalculator {
+public final class JoinHashCalculator {
 
     private final static Comparator<Integer> SORTER = new Comparator<Integer>() {
         @Override

@@ -953,4 +953,13 @@ public class StandardNode implements Node<SocketAddress> {
                 "NA":String.valueOf(currentNodeInfo.id());
         return "Node{id:"+idAsString+"}";
     }
+
+
+    /**
+     * created just for test
+     * @return iochannel
+     */
+    public IoChannelCenter getIoChannelCenter() {
+        return ioChannelCenter;
+    }
 }

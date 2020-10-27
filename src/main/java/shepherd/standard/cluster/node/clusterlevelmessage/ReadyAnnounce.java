@@ -1,5 +1,6 @@
 package shepherd.standard.cluster.node.clusterlevelmessage;
 
+
 import shepherd.standard.cluster.node.JoinHashCalculator;
 
 public class ReadyAnnounce implements Announce{
