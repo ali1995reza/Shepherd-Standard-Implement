@@ -663,8 +663,15 @@ public class ClusterController extends TimerThread {
 
         for(AnnouncesStateTracker.DistributeAnnounce announce:timeOuts)
         {
+            logger.information("one timeout {} announce detected for node [{}]" ,
+                    announce.type().is(AnnouncesStateTracker.DistributeAnnounce.Type.CONNECT)?"connect":"disconnect" ,
+                    announce.relatedNode().id());
+
+            logger.information("announces : {}" , announce.announces());
+
             if(!announce.type().is(AnnouncesStateTracker.DistributeAnnounce.
                     Type.DISCONNECT))continue;
+
 
             if(announce.announces().containsKey(node.info()))
             {

@@ -313,7 +313,7 @@ class AnnouncesStateTracker {
 
         for(DistributeAnnounce announce:remove)
         {
-            disconnectAnnounces.remove(announce);
+            disconnectAnnounces.remove(announce.relatedNode);
         }
 
         return done;
@@ -321,6 +321,9 @@ class AnnouncesStateTracker {
 
     public final List<DistributeAnnounce> timeOutAnnounces(long l)
     {
+        if(disconnectAnnounces.size()+connectAnnounces.size()<=0)
+            return Collections.EMPTY_LIST;
+
         List<DistributeAnnounce> announces = new ArrayList<>();
 
         for(DistributeAnnounce announce:disconnectAnnounces.values())

@@ -163,7 +163,7 @@ public class NodeTest {
         list.add(node);
 
 
-        for(int i=0;i<5;i++) {
+        for(int i=0;i<0;i++) {
 
             Node node1 = joinCluster(Helper.pickAFreePort(), 3030);
             list.add(node1);
