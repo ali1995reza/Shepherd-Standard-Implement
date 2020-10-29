@@ -12,6 +12,7 @@ import shepherd.standard.logger.console.ConsoleLogger;
 
 import java.net.InetSocketAddress;
 import java.util.Scanner;
+import java.util.function.Consumer;
 
 public class DisconnectableNode {
 
@@ -37,6 +38,8 @@ public class DisconnectableNode {
                         )
         );
         StandardNode node = provide(Helper.pickAFreePort() , 3030);
+
+        new MaxThreadUsage().start();
 
         IoChannelCenter ioChannelCenter = node.getIoChannelCenter();
 

@@ -28,6 +28,7 @@ public class ClusterController extends TimerThread {
 
     private final static class DistributeSetToken implements AsynchronousResultListener<Answer<Object>>
     {
+        private final static Logger logger = LoggerFactory.factory().getLogger(DistributeSetToken.class);
         private final JoinResponse response;
         private final IoChannel channel;
 
@@ -39,7 +40,11 @@ public class ClusterController extends TimerThread {
 
         private final static boolean checkAnswerState(Answer<Object> answer)
         {
-            System.err.println(answer);
+            logger.information(
+                    "distribute connection token set result :\n {}" ,
+                    answer
+            );
+
             if(answer.responses().size()!=answer.numberOfRequiredResponses())
                 return false;
 
@@ -150,7 +155,6 @@ public class ClusterController extends TimerThread {
 
         stateTracker = new AnnouncesStateTracker(this.node);
         cluster = (StandardCluster) node.cluster();
-        //stateTracker.setOnAnnounceDone();
 
         logger = LoggerFactory.factory().getLogger(this);
 
@@ -175,6 +179,7 @@ public class ClusterController extends TimerThread {
         {
 
             this.connectToken = (ClusterConnectToken) question.data();
+            logger.debug("new connect token set , {}" , connectToken.token());
             try {
                 question.response(Yes.YES , AsynchronousResultListener.EMPTY);
             } catch (MessageException e) {
@@ -688,6 +693,7 @@ public class ClusterController extends TimerThread {
 
     @Override
     protected void init() {
+        logger.information("cluster controller initilaized");
     }
 
     @Override

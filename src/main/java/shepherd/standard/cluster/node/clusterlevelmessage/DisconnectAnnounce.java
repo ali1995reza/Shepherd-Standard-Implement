@@ -29,4 +29,12 @@ public class DisconnectAnnounce implements Announce {
     public boolean isLeft() {
         return left;
     }
+
+    @Override
+    public String toString() {
+        return "DisconnectAnnounce{" +
+                "disconnectedNode=" + disconnectedNode +
+                ", left=" + left +
+                '}';
+    }
 }
