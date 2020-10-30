@@ -23,6 +23,7 @@ import java.util.*;
 import static shepherd.standard.cluster.node.ClusterProtocolConstants.*;
 
 
+@Deprecated
 final class ClusterLevelEventHandler {
 
 

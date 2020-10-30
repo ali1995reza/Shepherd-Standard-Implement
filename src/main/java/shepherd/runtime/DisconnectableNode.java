@@ -39,12 +39,15 @@ public class DisconnectableNode {
         );
         StandardNode node = provide(Helper.pickAFreePort() , 3030);
 
-        new MaxThreadUsage().start();
+        //new MaxThreadUsage().start();
 
         IoChannelCenter ioChannelCenter = node.getIoChannelCenter();
 
         String command = new Scanner(System.in).nextLine();
 
+        node.leave();
+
+        Thread.sleep(1000000000);
         Integer integer = Integer.parseInt(command);
 
         for(IoChannel ioChannel:ioChannelCenter.connectedChannels())

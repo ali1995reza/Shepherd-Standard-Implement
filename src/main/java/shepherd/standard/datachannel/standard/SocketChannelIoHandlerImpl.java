@@ -183,6 +183,10 @@ public class SocketChannelIoHandlerImpl extends AbstractSocketChannelIoHandler i
     public void afterCanceled(IoContext context) {
         if(closeLatch.getCount()>0) {
             closeLatch.countDown();
+            try {
+                socketChannel.close();
+            } catch (IOException e) {
+            }
             eventListener.onChannelDisconnected(this);
         }
     }

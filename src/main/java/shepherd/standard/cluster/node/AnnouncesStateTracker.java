@@ -42,6 +42,7 @@ class AnnouncesStateTracker {
         private final SerializableNodeInfo relatedNode;
         private final long startTime;
         private long lastActivityTime;
+        private long localDetectTime;
         private final Cluster cluster;
 
         private DistributeAnnounce(Set<NodeInfo> allPossibleAnnouncers, Type type, SerializableNodeInfo relatedNode , Cluster c) {
@@ -76,6 +77,14 @@ class AnnouncesStateTracker {
             lastActivityTime = cluster.clusterTime();
 
             return allPossibleAnnouncers.isEmpty();
+        }
+
+
+        private boolean localAnnounce(NodeInfo info , Announce announce)
+        {
+            boolean b = announce(info , announce);
+            localDetectTime = cluster.clusterTime();
+            return b;
         }
 
         private boolean fail(NodeInfo info)
@@ -137,6 +146,9 @@ class AnnouncesStateTracker {
             return relatedNode;
         }
 
+        public void setLocalDetectTime(long localDetectTime) {
+            this.localDetectTime = localDetectTime;
+        }
     }
 
 
@@ -236,7 +248,7 @@ class AnnouncesStateTracker {
                 disconnected
         );
 
-        if(distributeAnnounce.announce(node.info() , new DisconnectAnnounce(disconnected, left)))
+        if(distributeAnnounce.localAnnounce(node.info() , new DisconnectAnnounce(disconnected, left)))
         {
             return disconnectAnnounces.remove(disconnected);
         }
@@ -250,7 +262,7 @@ class AnnouncesStateTracker {
                 announce.connectedNode()
         ).setChannel(channel);
 
-        if(distributeAnnounce.announce(node.info() , announce))
+        if(distributeAnnounce.localAnnounce(node.info() , announce))
         {
             return connectAnnounces.remove(announce.connectedNode());
         }
@@ -328,13 +340,13 @@ class AnnouncesStateTracker {
 
         for(DistributeAnnounce announce:disconnectAnnounces.values())
         {
-            if(node.cluster().clusterTime()-announce.startTime>=l)
+            if(node.cluster().clusterTime()-announce.lastActivityTime>=l)
                 announces.add(announce);
         }
 
         for(DistributeAnnounce announce:connectAnnounces.values())
         {
-            if(node.cluster().clusterTime()-announce.startTime>=l)
+            if(node.cluster().clusterTime()-announce.lastActivityTime>=l)
                 announces.add(announce);
         }
 

@@ -78,21 +78,11 @@ final class PacketParser {
         if(remainingSizeOfPacket==-1)
         {
             //so we must detect size of packet !
-            if(bufferedSize>=4)
-            {
-                detectSize();
-                if(remainingSizeOfPacket>0)
-                {
-                    return chunkBuffer();
-                }else if(remainingSizeOfPacket==0)
-                {
-                    remainingSizeOfPacket = -1;
-                    return chunkBuffer();
-                }else
-                {
-                    throw new IOException("packet size is negative");
-                }
-            }
+            if(detectSize())
+                return chunkBuffer();
+
+            return null;
+
         }else
         {
 
@@ -160,21 +150,54 @@ final class PacketParser {
     }
 
 
-
-    private void detectSize()
+    private boolean doDetectSize()
     {
-        final int positionTemp = buffer.position();
-        buffer.limit(positionTemp);
-        buffer.position(actualReadPosition);
+        if(bufferedSize<4)
+            return false;
 
         remainingSizeOfPacket = buffer.getInt();
-
 
         actualReadPosition+=4;
         bufferedSize-=4;
 
-        buffer.limit(buffer.capacity());
-        buffer.position(positionTemp);
+        if(remainingSizeOfPacket<0)
+            throw new IllegalStateException("packet size is negative");
+
+        if(remainingSizeOfPacket>0)
+            return true;
+        return doDetectSize();
+    }
+
+    private boolean detectSize()
+    {
+        if(bufferedSize<4)
+            return false;
+
+        final int positionTemp = buffer.position();
+
+        buffer.limit(positionTemp);
+        buffer.position(actualReadPosition);
+
+        boolean b = doDetectSize();
+
+        if(b) {
+            buffer.limit(buffer.capacity());
+            buffer.position(positionTemp);
+        }else {
+            remainingSizeOfPacket = -1;
+            if(buffer.capacity()-buffer.limit()<4)
+            {
+                ByteBuffer newBuffer = allocate();
+                newBuffer.put(buffer);
+                actualReadPosition = 0;
+                buffer = newBuffer;
+            }else {
+                buffer.limit(buffer.capacity());
+                buffer.position(positionTemp);
+            }
+        }
+
+        return b;
     }
 
     private void pushCurrentBufferToHolder()

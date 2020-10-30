@@ -576,7 +576,7 @@ public class StandardNode implements Node<SocketAddress> {
                 ()->{leaving = true;}
         );
 
-        clusterController.handleLeave();
+        clusterController.doLeave();
 
         dispose();
 

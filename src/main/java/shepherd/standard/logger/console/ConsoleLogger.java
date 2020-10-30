@@ -1,5 +1,6 @@
 package shepherd.standard.logger.console;
 
+import com.sun.org.apache.xerces.internal.impl.dv.xs.AnyURIDV;
 import shepherd.api.logger.LogConfig;
 import shepherd.api.logger.Logger;
 import shepherd.api.logger.LoggerConfigure;
@@ -130,19 +131,17 @@ public class ConsoleLogger implements Logger {
     private final boolean logStackTrace;
     private final Object object;
     private final int logLevelCode;
-    private final String loggerDetails;
     private final String name;
 
-    public ConsoleLogger(LogLevel[] level, Object o, String name)
+    public ConsoleLogger(LogLevel[] level, Object o , String name)
     {
-        this.name = name==null||name.isEmpty()?
-                (o==null?"LOGGER":o.getClass().getSimpleName()):name;
+        this.name = name==null||name.isEmpty()?"null":name;
         this.level = level;
         logLevelCode = LogLevel.createLogLevelId(level);
         logStackTrace = LogLevel.contains(logLevelCode , STACK_TRACE);
         object = o;
 
-        loggerDetails = this.name+" | object : " +(object==null||object.toString()==null?"null":object);
+
     }
 
     @Override
@@ -328,7 +327,7 @@ public class ConsoleLogger implements Logger {
 
     private final String buildLog(String color , String level , Object value)
     {
-        return color+level+" - [ "+ loggerDetails +" - "+formatter.format(new Date())+" ]"+
+        return color+level+" - [ "+ name +" - "+formatter.format(new Date())+" ]"+
                 ConsoleColors.RESET+" : "+value+"\n";
     }
 

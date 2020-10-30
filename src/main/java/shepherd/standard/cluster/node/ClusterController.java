@@ -10,6 +10,7 @@ import shepherd.api.logger.LoggerFactory;
 import shepherd.api.message.*;
 import shepherd.api.message.exceptions.MessageException;
 import shepherd.api.message.exceptions.SerializeException;
+import shepherd.standard.asynchrounous.SynchronizerListener;
 import shepherd.standard.cluster.node.clusterlevelmessage.*;
 import shepherd.standard.datachannel.IoChannel;
 import shepherd.standard.message.standardserializer.ObjectSerializer;
@@ -20,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 import static shepherd.standard.cluster.node.ClusterProtocolConstants.CLSTR_MSG_SRLIZR;
 import static shepherd.standard.cluster.node.ClusterProtocolConstants.createSuccessJoinResponse;
@@ -133,6 +135,7 @@ public class ClusterController extends TimerThread {
 
 
 
+
     ClusterController(StandardNode node)
     {
         super(1000l);
@@ -160,8 +163,13 @@ public class ClusterController extends TimerThread {
 
     }
 
-    void handleLeave()
+    synchronized void doLeave()
     {
+        if (leaving) throw new IllegalStateException("already leaving");
+
+        leaving = true;
+
+        leave();
 
     }
 
@@ -691,13 +699,41 @@ public class ClusterController extends TimerThread {
         }
     }
 
+
+    private void leave()
+    {
+        SynchronizerListener<AnswerImpl<Object>> leaveAnswer = new SynchronizerListener<>();
+        StandardNodeInfo nodeInfo = (StandardNodeInfo) node.info();
+
+        nodeInfo.setState(NodeState.LEAVING);
+
+
+        try {
+            maximumPriorityMessageService.sendMessage(LeaveAnnounce.LEAVE_ANNOUNCE , 0 ,
+                    AsynchronousResultListener.EMPTY);
+
+            minimumPriorityMessageService.askQuestion(LeaveQuestion.LEAVE_QUESTION
+                    , MessageService.DefaultArguments.ALL_RESPONSES , leaveAnswer);
+
+        } catch (MessageException e) {
+            e.printStackTrace();
+        }
+
+
+        Answer<Object> answer = leaveAnswer.syncUninterruptible();
+        logger.information("leave question result :\r\n {}" , answer);
+
+        node.dispose();
+    }
+
     @Override
     protected void init() {
         logger.information("cluster controller initilaized");
     }
 
     @Override
-    protected void onDataAvailable(Object data) {
+    protected synchronized void onDataAvailable(Object data) {
+        if(leaving)return;
         if(data instanceof Question)
         {
             handleQuestion((Question)data);
@@ -714,7 +750,8 @@ public class ClusterController extends TimerThread {
 
 
     @Override
-    protected void onWakeup() {
+    protected synchronized void onWakeup() {
+        if(leaving)return;
         checkStateTracker();
     }
 
