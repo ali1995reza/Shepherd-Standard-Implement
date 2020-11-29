@@ -164,7 +164,7 @@ public class SocketChannelIoHandlerImpl extends AbstractSocketChannelIoHandler i
 
     @Override
     public void whenRegistered(IoContext context, IoState state) {
-        if(!clientSide && isHandshakeDone())
+        if(isHandshakeDone())
         {
             eventListener.onNewChannelConnected(this);
         }
@@ -172,11 +172,8 @@ public class SocketChannelIoHandlerImpl extends AbstractSocketChannelIoHandler i
 
     @Override
     public void afterHandShakeDone(IoContext context , IoState state) {
-        //so we need to tell the system ioChannel opened !
-        if(!clientSide)
-        {
-            eventListener.onNewChannelConnected(this);
-        }
+
+        eventListener.onNewChannelConnected(this);
     }
 
     @Override

@@ -84,6 +84,9 @@ public final class StandardIoChannelCenter implements IoChannelCenter {
         }else {
             ioHandler = factory.createUnSecureClientSideIoHandler(socketChannel);
         }
+
+        IoChannel ioChannel = ((IoChannelProvider)ioHandler).provideIoChannel();
+
         try {
             processor.registerIoHandler(ioHandler);
         }catch (IOException e)
@@ -95,7 +98,40 @@ public final class StandardIoChannelCenter implements IoChannelCenter {
             throw e;
         }
 
+
+        connectedChannels.add(ioChannel);
+        return ioChannel;
+    }
+
+    @Override
+    public IoChannel connect(SocketAddress address, Object attachment) throws IOException {
+        SocketChannel socketChannel = SocketChannel.open();
+        socketChannel.connect(address);
+        SSLContext sslContext = configuration.get(StandardDataChannelConfigurations.SSL_CONTEXT);
+        IoHandler ioHandler = null;
+        if(sslContext!=null)
+        {
+
+            ioHandler = factory.createSecureClientSideIoHandler(socketChannel , sslContext);
+        }else {
+            ioHandler = factory.createUnSecureClientSideIoHandler(socketChannel);
+        }
+
         IoChannel ioChannel = ((IoChannelProvider)ioHandler).provideIoChannel();
+        ioChannel.attach(attachment);
+
+        try {
+            processor.registerIoHandler(ioHandler);
+        }catch (IOException e)
+        {
+            try {
+                socketChannel.close();
+            }catch (IOException ex){}
+
+            throw e;
+        }
+
+
         connectedChannels.add(ioChannel);
         return ioChannel;
     }

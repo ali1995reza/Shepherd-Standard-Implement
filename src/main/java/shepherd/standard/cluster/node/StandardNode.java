@@ -65,6 +65,7 @@ public class StandardNode implements Node<SocketAddress> {
         private IoChannel leaderChannel;
         private int state = INITIAL;
         private int numberOfNodes = -1;
+        private Object clientSideToken = new Object();
 
         private JoinEventListener(StandardNode node) {
             this.node = node;
@@ -114,7 +115,7 @@ public class StandardNode implements Node<SocketAddress> {
 
         private final void doJoin(NodeAddress<SocketAddress> address , String password) throws Exception {
             logger.information("connecting to {}" , address.address());
-            leaderChannel = node.ioChannelCenter.connect(address.address());
+            leaderChannel = node.ioChannelCenter.connect(address.address() , clientSideToken);
             ++state;
             SocketAddress currentNodeAddress =
                     node.configurations().get(NodeConfigurations.NODE_ADDRESS);
@@ -138,9 +139,14 @@ public class StandardNode implements Node<SocketAddress> {
 
         @Override
         public synchronized void onNewChannelConnected(IoChannel ioChannel) {
-            joinError = new IOException("a new connection connected during join time");
-            logger.warning(joinError);
-            joinLatch.countDown();
+            if(ioChannel.attachment()!=clientSideToken) {
+                joinError = new IOException("a new connection connected during join time");
+                logger.warning(joinError);
+                joinLatch.countDown();
+            }else
+            {
+                ioChannel.attach(null);
+            }
         }
 
         @Override
@@ -213,7 +219,8 @@ public class StandardNode implements Node<SocketAddress> {
                         }else
                         {
                             IoChannel newChannel = node.ioChannelCenter.connect(
-                                    info.address()
+                                    info.address() ,
+                                    clientSideToken
                             );
                             newChannel.attach(info);
                             newChannel.send(

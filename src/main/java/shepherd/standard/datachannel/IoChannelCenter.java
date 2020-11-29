@@ -10,6 +10,7 @@ public interface IoChannelCenter {
     Collection<IoChannel> connectedChannels();
     void setDataChannelEventListener(IoChannelEventListener eventListener);
     IoChannel connect(SocketAddress address) throws IOException;
+    IoChannel connect(SocketAddress address , Object attachment) throws IOException;
     IoChannel findChannelByAddress(SocketAddress address);
 
     void start(SocketAddress address) throws IOException;
